@@ -1,4 +1,5 @@
 using Casino.Data;
+using Casino.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,6 +16,8 @@ builder.Services.AddDefaultIdentity<IdentityUser>(
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddControllersWithViews();
+
+builder.Services.AddScoped<SlotEngine>();
 
 var app = builder.Build();
 
@@ -50,35 +53,32 @@ using (var scope = app.Services.CreateScope())
     var roleManager =
         scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
-    string[] roles =
-    {
-        "Admin",
-        "User"
-    };
+    var userManager =
+        scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+
+    // Create roles
+    string[] roles = { "Admin", "User" };
 
     foreach (var role in roles)
     {
         if (!await roleManager.RoleExistsAsync(role))
         {
-            await roleManager.CreateAsync(
-                new IdentityRole(role));
+            await roleManager.CreateAsync(new IdentityRole(role));
         }
     }
 
-    var userManager =
-    scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+    // Make your account an Admin
+    //var adminEmail = "craig.griffiths2007@gmail.com";
 
-    var adminEmail = "craig.griffiths2007@gmail.com";
+    //var adminUser =
+    //    await userManager.FindByEmailAsync(adminEmail);
 
-    var adminUser = await userManager.FindByEmailAsync(adminEmail);
-
-    if (adminUser != null &&
-        !await userManager.IsInRoleAsync(adminUser, "Admin"))
-    {
-        await userManager.AddToRoleAsync(adminUser, "Admin");
-    }
+    //if (adminUser != null &&
+    //    !await userManager.IsInRoleAsync(adminUser, "Admin"))
+    //{
+    //    await userManager.AddToRoleAsync(adminUser, "Admin");
+    //}
 }
-
 
 
 app.Run();

@@ -1,0 +1,569 @@
+﻿@model Casino.Models.PlayerAccount
+
+@{
+    ViewData["Title"] = "Slot Game";
+}
+
+<div class="container text-center mt-5">
+
+    <h1 class="mb-4">Casino Slot</h1>
+
+    <div class="mb-3">
+        Balance:
+        <strong id="balance">
+            @Model.Credits
+        </strong>
+        credits
+    </div>
+
+    <div class="mb-3">
+        <label for="bet">Bet</label>
+
+        <select id="bet"
+                class="form-select d-inline-block"
+                style="width:120px;">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+        </select>
+    </div>
+
+    <div class="reel-window">
+
+        <div id="reels">
+
+            @for (int row = 0; row < 3; row++)
+            {
+                for (int reel = 0; reel < 5; reel++)
+                {
+                    <div class="slot-cell"
+                         data-row="@row"
+                         data-reel="@reel">
+                        ?
+                    </div>
+                }
+            }
+
+        </div>
+
+    </div>
+
+     
+
+
+    <button id="spinButton"
+            class="btn btn-primary btn-lg px-5">
+        SPIN
+    </button>
+
+    <div id="winMessage"
+         class="mt-3 fs-4">
+    </div>
+</div>
+
+<form id="antiForgeryForm">
+    @Html.AntiForgeryToken()
+</form>
+
+@section Scripts
+{
+    <script>
+        const spinButton =
+            document.getElementById("spinButton");
+
+        const balance =
+            document.getElementById("balance");
+
+        const winMessage =
+            document.getElementById("winMessage");
+
+        const sleep = ms =>
+            new Promise(resolve => setTimeout(resolve, ms));
+
+        spinButton.addEventListener("click", async () => {
+
+            spinButton.disabled = true;
+            winMessage.textContent = "";
+
+            const bet =
+                document.getElementById("bet").value;
+
+            const token =
+                document.querySelector(
+                    '#antiForgeryForm input[name="__RequestVerificationToken"]'
+                ).value;
+
+            const body =
+                new URLSearchParams();
+
+            body.append("bet", bet);
+
+            body.append(
+                "__RequestVerificationToken",
+                token);
+
+            try {
+                const response =
+                    await fetch("/Game/Spin",
+                        {
+                            method: "POST",
+                            headers:
+                            {
+                                "Content-Type":
+                                    "application/x-www-form-urlencoded"
+                            },
+                            body: body
+                        });
+
+                const data =
+                    await response.json();
+
+                if (!response.ok) {
+                    winMessage.textContent =
+                        data.message ?? "Spin failed.";
+
+                    return;
+                }
+
+                // Show the initial board
+                await animateInitialBoard(
+                    data.initialBoard);
+
+                await sleep(500);
+
+                let runningWin = 0;
+
+                // Play each cascade one at a time
+                for (const cascade of data.cascades) {
+
+                    runningWin += cascade.win;
+
+                    winMessage.textContent =
+                        `WIN ${cascade.win} credits`;
+
+                    await playCascade(cascade);
+                }
+
+                balance.textContent =
+                    data.balance;
+
+                if (data.win > 0) {
+                    winMessage.textContent =
+                        `TOTAL WIN ${data.win} credits`;
+                }
+                else {
+                    winMessage.textContent =
+                        "No win";
+                }
+            }
+            catch (error) {
+                console.error(error);
+
+                winMessage.textContent =
+                    "Something went wrong.";
+            }
+            finally {
+                spinButton.disabled = false;
+            }
+        });
+
+        async function playCascade(cascade) {
+            // Highlight winners
+            highlightWins(cascade.wins);
+
+            await sleep(700);
+
+            // Remove winners
+            removeWinningSymbols(cascade.wins);
+
+            await sleep(300);
+
+            // Existing symbols fall down
+            await animateDrop(
+                cascade.boardBefore,
+                cascade.wins);
+
+            await sleep(100);
+
+            // New symbols fall in from above
+            await animateNewSymbols(
+                cascade.boardAfter,
+                cascade.wins);
+
+            await sleep(300);
+
+            // Make absolutely sure the board
+            // matches the server result
+            showBoard(cascade.boardAfter);
+
+            await sleep(500);
+        }
+
+        async function animateInitialBoard(board) {
+            const rowSpacing = 108;
+
+            // Put symbols into their cells
+            for (let row = 0; row < 3; row++) {
+                for (let reel = 0; reel < 5; reel++) {
+                    const cell = getCell(row, reel);
+
+                    setSymbol(cell, board[row][reel]);
+
+                    cell.classList.remove(
+                        "winning",
+                        "removed");
+
+                    cell.style.opacity = "1";
+                    cell.style.transition = "none";
+                    cell.style.transform = "translateY(0)";
+                }
+            }
+
+            void document.body.offsetWidth;
+
+            // Move each reel above the screen while
+            // preserving the normal spacing between rows
+            for (let reel = 0; reel < 5; reel++) {
+                
+                const topStartOffset = -400;
+
+                for (let row = 0; row < 3; row++) {
+                    const cell =
+                        getCell(row, reel);
+
+                    /*
+                     * Each lower row begins 108px lower
+                     * than the row above it.
+                     *
+                     * Row 0: highest
+                     * Row 1: +108px
+                     * Row 2: +216px
+                     */
+                    const offset =
+                        topStartOffset;
+
+                    cell.style.transition = "none";
+
+                    cell.style.transform =
+                        `translateY(${offset}px)`;
+                }
+            }
+
+            void document.body.offsetWidth;
+
+            // Drop them into their real positions
+            for (let row = 0; row < 3; row++) {
+                for (let reel = 0; reel < 5; reel++) {
+                    const cell =
+                        getCell(row, reel);
+
+                    const delay =
+                        (reel * 0.11) +
+                        ((2 - row) * 0.035);
+
+                    cell.style.transition =
+                        `transform 0.65s cubic-bezier(.22,.8,.3,1) ${delay}s`;
+
+                    cell.style.transform =
+                        "translateY(0)";
+                }
+            }
+
+            await sleep(1300);
+        }
+
+        async function animateDrop(boardBefore, wins) {
+            const removed = new Set();
+
+            for (const win of wins) {
+                for (const position of win.positions) {
+                    removed.add(
+                        `${position.row}-${position.reel}`);
+                }
+            }
+
+            for (let reel = 0; reel < 5; reel++) {
+                const survivors = [];
+
+                // Find surviving symbols bottom to top
+                for (let row = 2; row >= 0; row--) {
+                    const key =
+                        `${row}-${reel}`;
+
+                    if (!removed.has(key)) {
+                        survivors.push({
+                            symbol:
+                                boardBefore[row][reel],
+
+                            oldRow:
+                                row
+                        });
+                    }
+                }
+
+                // Clear this reel visually
+                for (let row = 0; row < 3; row++) {
+                    const cell =
+                        getCell(row, reel);
+
+                    cell.innerHTML = "";
+
+                    cell.classList.remove(
+                        "winning",
+                        "removed");
+
+                    cell.style.opacity = "1";
+                    cell.style.transform = "translateY(0)";
+                }
+
+                let targetRow = 2;
+                let survivorIndex = 0;
+
+                for (const survivor of survivors) {
+                    const cell =
+                        getCell(targetRow, reel);
+
+                    setSymbol(
+                        cell,
+                        survivor.symbol);
+
+                    const distance =
+                        targetRow - survivor.oldRow;
+
+                    cell.style.transition = "none";
+
+                    cell.style.transform =
+                        `translateY(${-distance * 108}px)`;
+
+                    cell.style.opacity = "1";
+
+                    void cell.offsetWidth;
+
+                    const delay =
+                        survivorIndex * 0.06;
+
+                    cell.style.transition =
+                        `transform 0.45s ease ${delay}s`;
+
+                    cell.style.transform =
+                        "translateY(0)";
+
+                    targetRow--;
+                    survivorIndex++;
+                }
+            }
+
+            await sleep(550);
+        }
+
+        async function animateNewSymbols(boardAfter, wins)
+        {
+            const removed = new Set();
+
+            for (const win of wins)
+            {
+                for (const position of win.positions)
+                {
+                    removed.add(
+                        `${position.row}-${position.reel}`);
+                }
+            }
+
+            for (let reel = 0; reel < 5; reel++)
+            {
+                // Count how many symbols were removed from this reel
+                let removedCount = 0;
+
+                for (let row = 0; row < 3; row++)
+                {
+                    if (removed.has(`${row}-${reel}`))
+                    {
+                        removedCount++;
+                    }
+                }
+
+                if (removedCount === 0)
+                    continue;
+
+                // New symbols will occupy the top rows
+                for (let row = 0; row < removedCount; row++)
+                {
+                    const cell = getCell(row, reel);
+
+                    setSymbol(
+                        cell,
+                        boardAfter[row][reel]);
+
+                    cell.classList.remove(
+                        "winning",
+                        "removed");
+
+                    cell.style.opacity = "1";
+                    cell.style.transition = "none";
+
+                    // Start above the grid
+                    const startDistance =
+                        (removedCount - row) * 108;
+
+                    cell.style.transform =
+                        `translateY(${-startDistance}px)`;
+
+                    // Force browser to render starting position
+                    void cell.offsetWidth;
+
+                    cell.style.transition =
+                        "transform 0.45s ease";
+
+                    cell.style.transform =
+                        "translateY(0)";
+                }
+            }
+
+            await sleep(500);
+        }
+
+        function showBoard(board) {
+            for (let row = 0; row < 3; row++) {
+                for (let reel = 0; reel < 5; reel++) {
+                    const cell =
+                        getCell(row, reel);
+
+                    cell.style.transition = "none";
+                    cell.style.transform = "translateY(0)";
+                    cell.style.opacity = "1";
+
+                    setSymbol(
+                        cell,
+                        board[row][reel]);
+
+                    cell.classList.remove(
+                        "winning",
+                        "removed");
+
+                    void cell.offsetWidth;
+
+                    cell.style.transition = "";
+                }
+            }
+        }
+
+        function highlightWins(wins) {
+            clearHighlights();
+
+            for (const win of wins) {
+                for (const position of win.positions) {
+                    const cell =
+                        getCell(
+                            position.row,
+                            position.reel);
+
+                    cell.classList.add("winning");
+                }
+            }
+        }
+
+        function removeWinningSymbols(wins) {
+            for (const win of wins) {
+                for (const position of win.positions) {
+                    const cell =
+                        getCell(
+                            position.row,
+                            position.reel);
+
+                    cell.classList.remove("winning");
+                    cell.classList.add("removed");
+
+                    cell.innerHTML = "";
+                }
+            }
+        }
+
+        function clearHighlights() {
+            document
+                .querySelectorAll(".slot-cell")
+                .forEach(cell => {
+                    cell.classList.remove(
+                        "winning",
+                        "removed");
+                });
+        }
+
+        function getCell(row, reel) {
+            return document.querySelector(
+                `[data-row="${row}"][data-reel="${reel}"]`
+            );
+
+            
+
+
+        }
+
+        function setSymbol(cell, symbol) {
+            if (!symbol) {
+                cell.innerHTML = "";
+                return;
+            }
+
+            const fileName =
+                symbol.toLowerCase();
+
+            cell.innerHTML =
+                `<img src="/images/symbols/${fileName}.png"
+                                  class="slot-symbol"
+                                  alt="${symbol}">`;
+        }
+    </script>
+
+
+    <style>
+        .slot-cell {
+            transition: transform 0.4s ease, opacity 0.25s ease, background-color 0.25s ease;
+        }
+
+            .slot-cell.winning {
+                background-color: gold !important;
+                transform: scale(1.08);
+            }
+
+            .slot-cell.removed {
+                opacity: 0;
+                transform: scale(0.3);
+            }
+
+        .reel-window {
+            position: relative;
+            width: 540px;
+            height: 316px;
+            margin: 30px auto 24px auto;
+            overflow: hidden;
+        }
+
+        #reels {
+            display: grid;
+            grid-template-columns: repeat(5, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .slot-cell {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .slot-symbol {
+            width: 90px;
+            height: 90px;
+            object-fit: contain;
+            display: block;
+            pointer-events: none;
+            user-select: none;
+        }
+    </style>
+}
