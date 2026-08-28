@@ -39,7 +39,7 @@ namespace Casino.Services
             ("YellowOrb", 4),
 
             // Rare wild
-            ("RedOrb",    30)
+            ("RedOrb",    5)
         };
 
         private readonly int[][] _paylines =
