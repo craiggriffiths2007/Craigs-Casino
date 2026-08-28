@@ -32,7 +32,6 @@
     <div class="reel-window">
 
         <div id="reels">
-
             @for (int row = 0; row < 3; row++)
             {
                 for (int reel = 0; reel < 5; reel++)
@@ -44,8 +43,11 @@
                     </div>
                 }
             }
-
         </div>
+
+        <svg id="paylineOverlay"></svg>
+
+        <div id="phoenixOverlay"></div>
 
     </div>
 
@@ -126,6 +128,9 @@
                     return;
                 }
 
+                // Remove any Phoenix left over from the previous spin
+                clearPhoenix();
+
                 // Show the initial board
                 await animateInitialBoard(
                     data.initialBoard);
@@ -169,35 +174,86 @@
         });
 
         async function playCascade(cascade) {
-            // Highlight winners
+            clearPaylines();
+
+            // Start all winning symbols pulsing
             highlightWins(cascade.wins);
 
-            await sleep(700);
+            // Show each winning payline
+            for (const win of cascade.wins) {
+                clearPaylines();
 
-            // Remove winners
+                drawPayline(win);
+
+                winMessage.textContent =
+                    `LINE ${win.paylineIndex + 1} - ${win.win} credits`;
+
+                await sleep(700);
+            }
+
+            clearPaylines();
+
+            await sleep(400);
+
+            // Winning symbols disappear
             removeWinningSymbols(cascade.wins);
 
             await sleep(300);
 
-            // Existing symbols fall down
+            // Any Phoenixes that were active for this
+            // cascade now expire visually
+            removePhoenixes(
+                cascade.expiredPhoenixReels);
+
+            // Existing normal symbols fall down
             await animateDrop(
                 cascade.boardBefore,
                 cascade.wins);
 
             await sleep(100);
 
-            // New symbols fall in from above
+            // Normal replacement symbols fall in.
+            // Reels becoming Phoenixes are skipped.
             await animateNewSymbols(
                 cascade.boardAfter,
-                cascade.wins);
+                cascade.wins,
+                cascade.phoenixReels);
 
-            await sleep(300);
+            await sleep(100);
 
-            // Make absolutely sure the board
-            // matches the server result
+            // New Phoenixes rise ONCE
+            if (cascade.phoenixReels &&
+                cascade.phoenixReels.length > 0) {
+                for (const reel of cascade.phoenixReels) {
+                    showPhoenix(reel);
+                }
+
+                // All Phoenixes rise simultaneously
+                await sleep(950);
+            }
+
+            // Synchronise the normal board with the server result
             showBoard(cascade.boardAfter);
 
+            // Phoenix reels are represented by the large overlay,
+            // so don't show the three underlying Phoenix images.
+            if (cascade.phoenixReels &&
+                cascade.phoenixReels.length > 0) {
+                hidePhoenixCells(
+                    cascade.phoenixReels);
+            }
+
+            clearPaylines();
+
             await sleep(500);
+        }
+
+        function hidePhoenixCells(reels) {
+            for (const reel of reels) {
+                for (let row = 0; row < 3; row++) {
+                    getCell(row, reel).innerHTML = "";
+                }
+            }
         }
 
         async function animateInitialBoard(board) {
@@ -357,9 +413,14 @@
             await sleep(550);
         }
 
-        async function animateNewSymbols(boardAfter, wins)
+        async function animateNewSymbols(
+            boardAfter,
+            wins,
+            phoenixReels)
         {
             const removed = new Set();
+
+            const phoenixSet = new Set(phoenixReels ?? []);
 
             for (const win of wins)
             {
@@ -372,6 +433,10 @@
 
             for (let reel = 0; reel < 5; reel++)
             {
+                // This reel is becoming a Phoenix,
+                // so do NOT animate normal replacement symbols into it.
+                if (phoenixSet.has(reel))
+                    continue;
                 // Count how many symbols were removed from this reel
                 let removedCount = 0;
 
@@ -449,8 +514,6 @@
         }
 
         function highlightWins(wins) {
-            clearHighlights();
-
             for (const win of wins) {
                 for (const position of win.positions) {
                     const cell =
@@ -481,11 +544,9 @@
 
         function clearHighlights() {
             document
-                .querySelectorAll(".slot-cell")
+                .querySelectorAll(".slot-cell.winning")
                 .forEach(cell => {
-                    cell.classList.remove(
-                        "winning",
-                        "removed");
+                    cell.classList.remove("winning");
                 });
         }
 
@@ -513,6 +574,157 @@
                                   class="slot-symbol"
                                   alt="${symbol}">`;
         }
+
+        function clearPaylines() {
+            const svg =
+                document.getElementById("paylineOverlay");
+
+            if (svg)
+                svg.innerHTML = "";
+        }
+
+        function drawPayline(win) {
+            const svg =
+                document.getElementById("paylineOverlay");
+
+            const reelWindow =
+                document.querySelector(".reel-window");
+
+            const windowRect =
+                reelWindow.getBoundingClientRect();
+
+            const points = [];
+
+            for (const position of win.positions) {
+                const cell =
+                    getCell(
+                        position.row,
+                        position.reel);
+
+                const rect =
+                    cell.getBoundingClientRect();
+
+                const x =
+                    rect.left -
+                    windowRect.left +
+                    (rect.width / 2);
+
+                const y =
+                    rect.top -
+                    windowRect.top +
+                    (rect.height / 2);
+
+                points.push(`${x},${y}`);
+            }
+
+            const polyline =
+                document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "polyline");
+
+            polyline.setAttribute(
+                "points",
+                points.join(" "));
+
+            polyline.setAttribute(
+                "fill",
+                "none");
+
+            polyline.setAttribute(
+                "stroke",
+                "#ff2020");
+
+            polyline.setAttribute(
+                "stroke-width",
+                "6");
+
+            polyline.setAttribute(
+                "stroke-linecap",
+                "round");
+
+            polyline.setAttribute(
+                "stroke-linejoin",
+                "round");
+
+            svg.appendChild(polyline);
+        }
+
+        async function showPhoenix(reel) {
+            const overlay =
+                document.getElementById("phoenixOverlay");
+
+            // Remove an existing Phoenix on THIS reel only
+            const existing =
+                overlay.querySelector(
+                    `[data-phoenix-reel="${reel}"]`);
+
+            if (existing)
+                existing.remove();
+
+            // Hide the 3 normal cells on this reel
+            for (let row = 0; row < 3; row++) {
+                const cell =
+                    getCell(row, reel);
+
+                cell.innerHTML = "";
+            }
+
+            const img =
+                document.createElement("img");
+
+            img.src =
+                "/images/symbols/phoenix.png";
+
+            img.className =
+                "phoenix-symbol";
+
+            img.dataset.phoenixReel =
+                reel;
+
+            img.style.left =
+                `${reel * 108}px`;
+
+            img.style.top =
+                "0px";
+
+            overlay.appendChild(img);
+
+            void img.offsetWidth;
+
+            img.classList.add("appear");
+
+            //await sleep(950);
+        }
+
+        function clearPhoenix() {
+            const overlay =
+                document.getElementById("phoenixOverlay");
+
+            overlay.innerHTML = "";
+        }
+
+        function removePhoenix(reel)
+        {
+            const overlay =
+                document.getElementById("phoenixOverlay");
+
+            const phoenix =
+                overlay.querySelector(
+                    `[data-phoenix-reel="${reel}"]`);
+
+            if (phoenix)
+                phoenix.remove();
+        }
+
+        function removePhoenixes(reels) {
+            if (!reels)
+                return;
+
+            for (const reel of reels) {
+                removePhoenix(reel);
+            }
+        }
+
     </script>
 
 
@@ -522,14 +734,13 @@
         }
 
             .slot-cell.winning {
-                background-color: gold !important;
-                transform: scale(1.08);
+                animation: symbolFlash 0.25s ease-in-out infinite alternate;
             }
 
-            .slot-cell.removed {
-                opacity: 0;
-                transform: scale(0.3);
-            }
+        .slot-cell.removed {
+            opacity: 0;
+            transform: scale(0.3);
+        }
 
         .reel-window {
             position: relative;
@@ -537,6 +748,15 @@
             height: 316px;
             margin: 30px auto 24px auto;
             overflow: hidden;
+        }
+
+        #paylineOverlay {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 40;
         }
 
         #reels {
@@ -564,6 +784,58 @@
             display: block;
             pointer-events: none;
             user-select: none;
+        }
+
+        @@keyframes symbolFlash {
+            from {
+                transform: scale(1);
+                filter: brightness(1) drop-shadow(0 0 0 transparent);
+            }
+
+            to {
+                transform: scale(1.15);
+                filter: brightness(1.5) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px #ffffff);
+            }
+        }
+
+        #phoenixOverlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 30;
+        }
+
+        .phoenix-symbol {
+            position: absolute;
+            width: 140px;
+            height: 100%;
+            object-fit: contain;
+            opacity: 0;
+            transform: translateX(-20px) translateY(250px) scale(0.4);
+            transform-origin: bottom center;
+            filter: brightness(1.5) drop-shadow(0 0 15px orange) drop-shadow(0 0 30px red);
+            z-index: 30;
+        }
+
+            .phoenix-symbol.appear {
+                animation: phoenixRise 0.9s ease-out forwards;
+            }
+
+        @@keyframes phoenixRise {
+            0% {
+                opacity: 0;
+                transform: translateX(-20px) translateY(250px) scale(0.4);
+            }
+
+            60% {
+                opacity: 1;
+                transform: translateX(-20px) translateY(-5px) scale(1.08);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateX(-20px) translateY(0) scale(1);
+            }
         }
     </style>
 }

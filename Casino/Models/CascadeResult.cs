@@ -9,5 +9,9 @@
         public List<WaysWin> Wins { get; set; } = [];
 
         public long Win { get; set; }
+
+        public List<int> PhoenixReels { get; set; } = new();
+
+        public List<int> ExpiredPhoenixReels { get; set; } = new();
     }
 }

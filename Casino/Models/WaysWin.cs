@@ -10,6 +10,8 @@
 
         public long Win { get; set; }
 
+        public int PaylineIndex { get; set; }
+
         public List<WinningPosition> Positions { get; set; } = [];
     }
 }

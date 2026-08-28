@@ -7,6 +7,7 @@ namespace Casino.Services
     {
         private const int Rows = 3;
         private const int Reels = 5;
+        private bool _useAllWays = false;
 
         private readonly string[] _symbols =
         {
@@ -15,8 +16,74 @@ namespace Casino.Services
             "Plum",
             "Bell",
             "Seven",
-            "Diamond"
+            "Diamond",
+
+            "BlueOrb",
+            "GreenOrb",
+            "YellowOrb",
+            "RedOrb"
         };
+
+        private static readonly (string Symbol, int Weight)[] _symbolWeights =
+        {
+            ("Cherry",  18),
+            ("Lemon",   18),
+            ("Plum",    16),
+            ("Bell",    14),
+            ("Seven",   12),
+            ("Diamond", 10),
+
+            // Special coloured symbols
+            ("BlueOrb",   6),
+            ("GreenOrb",  5),
+            ("YellowOrb", 4),
+
+            // Rare wild
+            ("RedOrb",    30)
+        };
+
+        private readonly int[][] _paylines =
+        {
+            // 0 = top, 1 = middle, 2 = bottom
+
+            new[] { 1, 1, 1, 1, 1 },
+            new[] { 0, 0, 0, 0, 0 },
+            new[] { 2, 2, 2, 2, 2 },
+
+            new[] { 0, 1, 2, 1, 0 },
+            new[] { 2, 1, 0, 1, 2 },
+
+            new[] { 0, 0, 1, 2, 2 },
+            new[] { 2, 2, 1, 0, 0 },
+
+            new[] { 1, 0, 0, 0, 1 },
+            new[] { 1, 2, 2, 2, 1 },
+
+            new[] { 0, 1, 1, 1, 0 },
+            new[] { 2, 1, 1, 1, 2 },
+
+            new[] { 1, 0, 1, 2, 1 },
+            new[] { 1, 2, 1, 0, 1 },
+
+            new[] { 0, 1, 0, 1, 0 },
+            new[] { 2, 1, 2, 1, 2 },
+
+            new[] { 0, 0, 2, 0, 0 },
+            new[] { 2, 2, 0, 2, 2 },
+
+            new[] { 1, 1, 0, 1, 1 },
+            new[] { 1, 1, 2, 1, 1 },
+
+            new[] { 0, 2, 1, 2, 0 },
+            new[] { 2, 0, 1, 0, 2 },
+
+            new[] { 0, 2, 2, 2, 0 },
+            new[] { 2, 0, 0, 0, 2 },
+
+            new[] { 0, 2, 1, 0, 2 },
+            new[] { 2, 0, 1, 2, 0 }
+        };
+
 
         public SlotSpinResult Spin(long bet)
         {
@@ -26,10 +93,18 @@ namespace Casino.Services
 
             result.InitialBoard = CloneBoard(board);
 
+            // A Phoenix only survives for one win evaluation.
+            var activePhoenixReels =
+                        new HashSet<int>();
+
             while (true)
             {
-                var wins = FindWaysWins(board, bet);
+                var wins = _useAllWays
+                    ? FindWaysWinsAll(board, bet)
+                    : FindPaylineWins(board, bet);
 
+                // Phoenix appeared but didn't create another win.
+                // Spin simply ends with the Phoenix still displayed.
                 if (wins.Count == 0)
                     break;
 
@@ -40,13 +115,52 @@ namespace Casino.Services
                     Win = wins.Sum(w => w.Win)
                 };
 
+                // Work out whether THIS win has removed
+                // all three positions from a reel.
+                var newPhoenixReels =
+                        FindCompletelyRemovedReels(wins)
+                            .Where(reel =>
+                                !activePhoenixReels.Contains(reel))
+                            .ToList();
+
+                // Remove all winning symbols.
                 RemoveWinningSymbols(board, wins);
 
+                // Existing Phoenixes expire after this win
+                cascade.ExpiredPhoenixReels =
+                    activePhoenixReels.ToList();
+                // If there was already a Phoenix on this board,
+                // it expires after this cascade.
+                foreach (int reel in activePhoenixReels)
+                {
+                    for (int row = 0; row < Rows; row++)
+                    {
+                        board[row][reel] = string.Empty;
+                    }
+                }
+
+                activePhoenixReels.Clear();
+
+                // Drop remaining normal symbols.
                 DropSymbols(board);
 
+                // Fill all normal empty spaces.
                 FillEmptySpaces(board);
 
-                cascade.BoardAfter = CloneBoard(board);
+                // If THIS win cleared a complete reel,
+                // replace that reel with a Phoenix.
+                foreach (int reel in newPhoenixReels)
+                {
+                    board[0][reel] = "Phoenix";
+                    board[1][reel] = "Phoenix";
+                    board[2][reel] = "Phoenix";
+
+                    activePhoenixReels.Add(reel);
+                    cascade.PhoenixReels.Add(reel);
+                }
+
+                cascade.BoardAfter =
+                    CloneBoard(board);
 
                 result.Cascades.Add(cascade);
 
@@ -73,15 +187,181 @@ namespace Casino.Services
             return board;
         }
 
-        private string GetRandomSymbol()
+        private static List<int> FindCompletelyRemovedReels(
+    List<WaysWin> wins)
         {
-            int index =
-                RandomNumberGenerator.GetInt32(_symbols.Length);
+            var removedPositions = wins
+                .SelectMany(w => w.Positions)
+                .DistinctBy(p => new
+                {
+                    p.Reel,
+                    p.Row
+                })
+                .ToList();
 
-            return _symbols[index];
+            var reels = new List<int>();
+
+            for (int reel = 0; reel < Reels; reel++)
+            {
+                bool allThreeRemoved =
+                    Enumerable.Range(0, Rows)
+                        .All(row =>
+                            removedPositions.Any(p =>
+                                p.Reel == reel &&
+                                p.Row == row));
+
+                if (allThreeRemoved)
+                    reels.Add(reel);
+            }
+
+            return reels;
         }
 
-        private List<WaysWin> FindWaysWins(
+        private static bool IsWild(string symbol)
+        {
+            return symbol == "RedOrb" ||
+                   symbol == "Phoenix";
+        }
+
+        private static bool IsOrb(string symbol)
+        {
+            return symbol is
+                "BlueOrb" or
+                "GreenOrb" or
+                "YellowOrb";
+        }
+
+        private static bool SymbolsMatch(
+            string targetSymbol,
+            string actualSymbol)
+        {
+            return actualSymbol == targetSymbol ||
+                   IsWild(actualSymbol);
+        }
+
+        private string GetRandomSymbol()
+        {
+            int totalWeight =
+                _symbolWeights.Sum(x => x.Weight);
+
+            int roll =
+                RandomNumberGenerator.GetInt32(totalWeight);
+
+            int runningTotal = 0;
+
+            foreach (var item in _symbolWeights)
+            {
+                runningTotal += item.Weight;
+
+                if (roll < runningTotal)
+                    return item.Symbol;
+            }
+
+            // Should never get here
+            return _symbolWeights[0].Symbol;
+        }
+
+
+
+        private List<WaysWin> FindPaylineWins(
+                                    string[][] board,
+                                    long bet)
+        {
+            var wins = new List<WaysWin>();
+
+            for (int paylineIndex = 0;
+                 paylineIndex < _paylines.Length;
+                 paylineIndex++)
+            {
+                var payline = _paylines[paylineIndex];
+
+                // Find the first non-wild symbol on this payline.
+                string? symbol = null;
+
+                for (int reel = 0; reel < Reels; reel++)
+                {
+                    string current =
+                        board[payline[reel]][reel];
+
+                    if (!IsWild(current))
+                    {
+                        symbol = current;
+                        break;
+                    }
+                }
+
+                // Entire line is wild - ignore for now.
+                if (symbol == null)
+                    continue;
+
+                int reelsMatched = 0;
+
+                for (int reel = 0; reel < Reels; reel++)
+                {
+                    int row = payline[reel];
+
+                    string actualSymbol =
+                        board[row][reel];
+
+                    if (SymbolsMatch(
+                        symbol,
+                        actualSymbol))
+                    {
+                        reelsMatched++;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                int minimumMatch =
+                    IsOrb(symbol)
+                        ? 2
+                        : 3;
+
+                if (reelsMatched < minimumMatch)
+                    continue;
+
+                long multiplier =
+                    GetMultiplier(
+                        symbol,
+                        reelsMatched);
+
+                if (multiplier <= 0)
+                    continue;
+
+                var positions =
+                    new List<WinningPosition>();
+
+                for (int reel = 0;
+                     reel < reelsMatched;
+                     reel++)
+                {
+                    positions.Add(
+                        new WinningPosition
+                        {
+                            Reel = reel,
+                            Row = payline[reel]
+                        });
+                }
+
+                wins.Add(
+                    new WaysWin
+                    {
+                        Symbol = symbol,
+                        ReelsMatched = reelsMatched,
+                        Ways = 1,
+                        Win = bet * multiplier,
+                        PaylineIndex = paylineIndex,
+                        Positions = positions
+                    });
+            }
+
+            return wins;
+        }
+
+        private List<WaysWin> FindWaysWinsAll(
             string[][] board,
             long bet)
         {
@@ -211,6 +491,33 @@ namespace Casino.Services
                     3 => 5,
                     4 => 12,
                     5 => 25,
+                    _ => 0
+                },
+
+                "BlueOrb" => reelsMatched switch
+                {
+                    2 => 1,
+                    3 => 3,
+                    4 => 8,
+                    5 => 20,
+                    _ => 0
+                },
+
+                "GreenOrb" => reelsMatched switch
+                {
+                    2 => 2,
+                    3 => 5,
+                    4 => 12,
+                    5 => 30,
+                    _ => 0
+                },
+
+                "YellowOrb" => reelsMatched switch
+                {
+                    2 => 3,
+                    3 => 8,
+                    4 => 20,
+                    5 => 50,
                     _ => 0
                 },
 
