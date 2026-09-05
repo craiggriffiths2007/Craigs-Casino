@@ -33,19 +33,19 @@
 
         <div class="reel-clip">
 
-        <div id="reels">
-            @for (int row = 0; row < 3; row++)
-            {
-                for (int reel = 0; reel < 5; reel++)
+            <div id="reels">
+                @for (int row = 0; row < 3; row++)
                 {
-                    <div class="slot-cell"
-                         data-row="@row"
-                         data-reel="@reel">
-                        ?
-                    </div>
+                    for (int reel = 0; reel < 5; reel++)
+                    {
+                        <div class="slot-cell"
+                             data-row="@row"
+                             data-reel="@reel">
+                            ?
+                        </div>
+                    }
                 }
-            }
-        </div>
+            </div>
         </div>
         <svg id="paylineOverlay"></svg>
 
@@ -87,6 +87,10 @@
 
         const sleep = ms =>
             new Promise(resolve => setTimeout(resolve, ms));
+
+        // True once a real board has been displayed.  On later spins the
+        // existing symbols fall away before the next board drops in.
+        let boardHasLanded = false;
 
         spinButton.addEventListener("click", async () => {
 
@@ -133,12 +137,22 @@
                     return;
                 }
 
-                // Remove any Phoenix left over from the previous spin
+                // Secrets-of-the-Phoenix style spin: the symbols already on
+                // screen fall away first, leaving the reel area briefly clear.
+                if (boardHasLanded) {
+                    await animateBoardExit();
+                }
+
+                // Remove any Phoenix left over from the previous spin after its
+                // reel has fallen away with the rest of the board.
                 clearPhoenix();
 
-                // Show the initial board
+                // New symbols then fall in from above, slightly staggered from
+                // reel to reel and with a small landing bounce.
                 await animateInitialBoard(
                     data.initialBoard);
+
+                boardHasLanded = true;
 
                 await sleep(500);
 
@@ -267,10 +281,65 @@
             }
         }
 
-        async function animateInitialBoard(board) {
-            const rowSpacing = 108;
+        async function animateBoardExit() {
+            clearPaylines();
+            clearHighlights();
 
-            // Put symbols into their cells
+            const cellsToDrop = [...document.querySelectorAll(".slot-cell")];
+
+            // Drop each reel away with a tiny offset so the board does not
+            // disappear as one rigid rectangle.
+            for (const cell of cellsToDrop) {
+                const reel = Number(cell.dataset.reel);
+                const row = Number(cell.dataset.row);
+
+                cell.style.transition = "none";
+                cell.style.opacity = "1";
+                cell.style.transform = "translateY(0)";
+
+                void cell.offsetWidth;
+
+                const delay =
+                    (reel * 0.035) +
+                    (row * 0.012);
+
+                cell.style.transition =
+                    `transform 0.32s cubic-bezier(.55,.05,.85,.35) ${delay}s, ` +
+                    `opacity 0.18s linear ${delay + 0.12}s`;
+
+                cell.style.transform =
+                    "translateY(360px)";
+
+                cell.style.opacity = "0";
+            }
+
+            // Phoenix overlays are not normal cells, so send them down too.
+            document
+                .querySelectorAll("#phoenixOverlay .phoenix-symbol")
+                .forEach((phoenix, index) => {
+                    phoenix.style.animation = "none";
+                    phoenix.style.transition =
+                        `transform 0.34s cubic-bezier(.55,.05,.85,.35) ${index * 0.04}s, ` +
+                        `opacity 0.18s linear ${0.12 + (index * 0.04)}s`;
+                    phoenix.style.transform =
+                        "translateX(-20px) translateY(380px) scale(1)";
+                    phoenix.style.opacity = "0";
+                });
+
+            await sleep(520);
+
+            for (const cell of cellsToDrop) {
+                cell.innerHTML = "";
+                cell.classList.remove("winning", "removed");
+                cell.style.transition = "none";
+                cell.style.transform = "translateY(0)";
+                cell.style.opacity = "1";
+            }
+        }
+
+        async function animateInitialBoard(board) {
+            // Populate the new result first, but keep every symbol above the
+            // visible reel area until its own drop begins.
             for (let row = 0; row < 3; row++) {
                 for (let reel = 0; reel < 5; reel++) {
                     const cell = getCell(row, reel);
@@ -283,61 +352,47 @@
 
                     cell.style.opacity = "1";
                     cell.style.transition = "none";
-                    cell.style.transform = "translateY(0)";
-                }
-            }
 
-            void document.body.offsetWidth;
+                    // Each reel begins at a slightly different height.  The
+                    // rows share that offset so their natural 108px grid
+                    // spacing is preserved while they are falling.
+                    const reelStart =
+                        -390 -
+                        (reel * 24) -
+                        (Math.random() * 90);
 
-            // Move each reel above the screen while
-            // preserving the normal spacing between rows
-            for (let reel = 0; reel < 5; reel++) {
-                
-                const topStartOffset = -400 - Math.random() * 400;
-
-                for (let row = 0; row < 3; row++) {
-                    const cell =
-                        getCell(row, reel);
-
-                    /*
-                     * Each lower row begins 108px lower
-                     * than the row above it.
-                     *
-                     * Row 0: highest
-                     * Row 1: +108px
-                     * Row 2: +216px
-                     */
-                    const offset =
-                        topStartOffset;
-
-                    cell.style.transition = "none";
+                    const rowVariation =
+                        (row * -18) -
+                        (Math.random() * 22);
 
                     cell.style.transform =
-                        `translateY(${offset}px)`;
+                        `translateY(${reelStart + rowVariation}px)`;
                 }
             }
 
+            // Make sure the off-screen starting frame is painted.
             void document.body.offsetWidth;
 
-            // Drop them into their real positions
-            for (let row = 0; row < 3; row++) {
-                for (let reel = 0; reel < 5; reel++) {
-                    const cell =
-                        getCell(row, reel);
+            // Drop left-to-right, but keep enough overlap that it feels like
+            // one gravity-driven event rather than five separate reel spins.
+            for (let reel = 0; reel < 5; reel++) {
+                for (let row = 0; row < 3; row++) {
+                    const cell = getCell(row, reel);
 
                     const delay =
-                        (reel * 0.17) +
-                        ((2 - row) * 0.035);
+                        (reel * 0.075) +
+                        (row * 0.018) +
+                        (Math.random() * 0.025);
 
                     cell.style.transition =
-                        `transform 0.65s cubic-bezier(.22,.8,.3,1) ${delay}s`;
+                        `transform 0.46s cubic-bezier(.22,.82,.32,1.08) ${delay}s`;
 
                     cell.style.transform =
                         "translateY(0)";
                 }
             }
 
-            await sleep(1300);
+            await sleep(900);
         }
 
         async function animateDrop(boardBefore, wins) {
@@ -427,23 +482,19 @@
         async function animateNewSymbols(
             boardAfter,
             wins,
-            phoenixReels)
-        {
+            phoenixReels) {
             const removed = new Set();
 
             const phoenixSet = new Set(phoenixReels ?? []);
 
-            for (const win of wins)
-            {
-                for (const position of win.positions)
-                {
+            for (const win of wins) {
+                for (const position of win.positions) {
                     removed.add(
                         `${position.row}-${position.reel}`);
                 }
             }
 
-            for (let reel = 0; reel < 5; reel++)
-            {
+            for (let reel = 0; reel < 5; reel++) {
                 // This reel is becoming a Phoenix,
                 // so do NOT animate normal replacement symbols into it.
                 if (phoenixSet.has(reel))
@@ -451,10 +502,8 @@
                 // Count how many symbols were removed from this reel
                 let removedCount = 0;
 
-                for (let row = 0; row < 3; row++)
-                {
-                    if (removed.has(`${row}-${reel}`))
-                    {
+                for (let row = 0; row < 3; row++) {
+                    if (removed.has(`${row}-${reel}`)) {
                         removedCount++;
                     }
                 }
@@ -463,8 +512,7 @@
                     continue;
 
                 // New symbols will occupy the top rows
-                for (let row = 0; row < removedCount; row++)
-                {
+                for (let row = 0; row < removedCount; row++) {
                     const cell = getCell(row, reel);
 
                     setSymbol(
@@ -654,8 +702,8 @@
 
             cell.innerHTML =
                 `<img src="/images/symbols/${fileName}.png"
-                      class="slot-symbol"
-                      alt="${symbol}">`;
+                              class="slot-symbol"
+                              alt="${symbol}">`;
         }
 
         function clearPaylines() {
@@ -888,10 +936,10 @@
                 animation: symbolFlash 0.25s ease-in-out infinite alternate;
             }
 
-        .slot-cell.removed {
-            opacity: 0;
-            transform: scale(0.3);
-        }
+            .slot-cell.removed {
+                opacity: 0;
+                transform: scale(0.3);
+            }
 
         .reel-window {
             position: relative;
@@ -1099,10 +1147,10 @@
             min-height: 100%;
         }
 
-        body {
-            background: linear-gradient( rgba(4, 8, 18, 0.20), rgba(4, 8, 18, 0.45) ), url('/images/phoenix-bg.png') center center / cover fixed no-repeat;
-            color: #fff;
-        }
+            body.casino-body {
+                background: linear-gradient( rgba(4, 8, 18, 0.20), rgba(4, 8, 18, 0.45) ), url('/images/phoenix-bg.png') center center / cover fixed no-repeat;
+                color: #fff;
+            }
 
         .container {
             position: relative;
@@ -1152,14 +1200,12 @@
 
 
         #explosionOverlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 60;
-    overflow: visible;
-}
-
-
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 60;
+            overflow: visible;
+        }
 
     </style>
 }

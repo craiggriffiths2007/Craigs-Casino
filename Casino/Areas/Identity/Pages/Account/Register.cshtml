@@ -1,0 +1,68 @@
+@page
+@model RegisterModel
+@{
+    ViewData["Title"] = "Register";
+}
+
+<section class="casino-login-page">
+    <div class="casino-login-particles"></div>
+
+    <div class="casino-login-card">
+        <div class="casino-login-logo">
+            <span>♠</span>
+            <h1>CRAIGS<br />CASINO</h1>
+            <p>CREATE PLAYER ACCOUNT</p>
+        </div>
+
+        <form id="registerForm"
+              asp-route-returnUrl="@Model.ReturnUrl"
+              method="post">
+
+            <div asp-validation-summary="ModelOnly"
+                 class="casino-validation"
+                 role="alert"></div>
+
+            <div class="casino-field">
+                <label asp-for="Input.Email">EMAIL</label>
+                <input asp-for="Input.Email"
+                       autocomplete="username"
+                       placeholder="you@example.com" />
+                <span asp-validation-for="Input.Email"></span>
+            </div>
+
+            <div class="casino-field">
+                <label asp-for="Input.Password">PASSWORD</label>
+                <input asp-for="Input.Password"
+                       autocomplete="new-password"
+                       placeholder="Choose a password" />
+                <span asp-validation-for="Input.Password"></span>
+            </div>
+
+            <div class="casino-field">
+                <label asp-for="Input.ConfirmPassword">CONFIRM PASSWORD</label>
+                <input asp-for="Input.ConfirmPassword"
+                       autocomplete="new-password"
+                       placeholder="Repeat your password" />
+                <span asp-validation-for="Input.ConfirmPassword"></span>
+            </div>
+
+            <button id="registerSubmit"
+                    class="casino-login-button"
+                    type="submit">
+                CREATE ACCOUNT
+            </button>
+
+            <div class="casino-login-links">
+                <span>Already registered?</span>
+                <a asp-page="./Login"
+                   asp-route-returnUrl="@Model.ReturnUrl">
+                    Player login
+                </a>
+            </div>
+        </form>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
