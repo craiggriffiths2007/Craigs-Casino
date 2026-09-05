@@ -1,10 +1,29 @@
+@using Casino.Data
+@using Casino.Models
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
 @inject SignInManager<IdentityUser> SignInManager
+@inject UserManager<IdentityUser> UserManager
+@inject ApplicationDbContext DbContext
 
 <div class="casino-accountbar">
 @if (SignInManager.IsSignedIn(User))
 {
+    var userId = UserManager.GetUserId(User);
+    var player = userId == null
+        ? null
+        : await DbContext.PlayerAccounts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.UserId == userId);
+
+    var credits = player?.Credits ?? 10000;
+
     <a class="casino-nav-link" href="@Url.Action("Index", "Home")#games">LOBBY</a>
+    <span class="casino-navbar-balance" title="Player balance">
+        <span class="casino-navbar-balance-label">BALANCE</span>
+        <strong id="balance">@credits.ToString("N0")</strong>
+
+    </span>
     <span class="casino-player">@User.Identity?.Name</span>
     <form asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home")">
         <button type="submit" class="casino-icon-button" title="Log out">⏻</button>

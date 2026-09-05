@@ -1008,9 +1008,10 @@ body.casino-body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    position: relative;
-    z-index: 100;
-    background: rgba(4,8,14,.94);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: rgba(4,8,14,.96);
     border-bottom: 1px solid rgba(242,207,99,.28);
     box-shadow: 0 8px 28px rgba(0,0,0,.28);
 }
@@ -1060,6 +1061,34 @@ body.casino-body {
     color: var(--casino-gold);
 }
 
+.casino-navbar-balance {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 7px 12px;
+    border: 1px solid rgba(242,207,99,.35);
+    border-radius: 999px;
+    background: rgba(242,207,99,.07);
+    white-space: nowrap;
+    box-shadow: inset 0 0 18px rgba(242,207,99,.03);
+}
+
+.casino-navbar-balance-label,
+.casino-navbar-balance-unit {
+    color: #92a6ba;
+    font-size: .62rem;
+    font-weight: 900;
+    letter-spacing: .09em;
+}
+
+.casino-navbar-balance strong {
+    color: var(--casino-gold);
+    font-size: .92rem;
+    font-weight: 1000;
+    letter-spacing: .02em;
+    text-shadow: 0 0 10px rgba(242,207,99,.25);
+}
+
 .casino-player {
     max-width: 240px;
     overflow: hidden;
@@ -1091,7 +1120,18 @@ body.casino-body {
     letter-spacing: .32em;
 }
 
-.casino-welcome,
+
+.casino-welcome {
+    position: relative;
+    height: calc(100dvh - 64px);
+    min-height: 0;
+    box-sizing: border-box;
+    overflow: visible;
+    display: grid;
+    place-items: start center;
+    padding: 18px;
+}
+
 .casino-login-page {
     position: relative;
     height: calc(100dvh - 64px);
@@ -1099,8 +1139,13 @@ body.casino-body {
     box-sizing: border-box;
     overflow: hidden;
     display: grid;
-    place-items: center;
+    place-items: start center;
     padding: 18px;
+}
+
+
+
+.casino-login-page {
     background: radial-gradient(circle at 50% 30%, rgba(78,39,116,.28), transparent 35%), radial-gradient(circle at 25% 65%, rgba(19,108,130,.18), transparent 28%), linear-gradient(145deg,#05070c,#0b101b 55%,#040609);
 }
 
@@ -1569,6 +1614,16 @@ a.casino-game-card:hover .game-art img {
         gap: 9px
     }
 
+    .casino-navbar-balance {
+        gap: 4px;
+        padding: 6px 9px;
+    }
+
+    .casino-navbar-balance-label,
+    .casino-navbar-balance-unit {
+        display: none;
+    }
+
     .casino-nav-link {
         font-size: .68rem
     }
@@ -1614,43 +1669,41 @@ html {
     scroll-behavior: smooth;
 }
 
+.casino-main-logo {
+    display: block;
+    width: min(700px, 90vw);
+    height: auto;
+    max-height: 300px;
+    object-fit: contain;
+    margin: 0 auto;
+}
+
 .casino-public-home {
     position: relative;
-    min-height: calc(100vh - 64px);
-    background: #04070c;
+    min-height: 100vh;
+    background: radial-gradient( circle at 50% 20%, rgba(78, 39, 116, 0.28), transparent 30% ), radial-gradient( circle at 22% 62%, rgba(19, 108, 130, 0.20), transparent 32% ), radial-gradient( circle at 78% 72%, rgba(78, 39, 116, 0.18), transparent 30% ), linear-gradient( 145deg, #05070c, #0b101b 55%, #040609 );
 }
-
-.casino-public-home .casino-home-hero {
-    height: auto;
-    min-height: clamp(500px, 62vh, 650px);
-    padding: 62px 18px 54px;
-    place-items: center;
-}
-
 .casino-public-home .casino-welcome-content {
     transform: translateY(-8px);
+}
+
+.casino-home-hero {
+    height: auto;
+    min-height: 480px;
+    padding: 70px 18px 55px;
+    place-items: start center;
 }
 
 .casino-public-games {
     position: relative;
     isolation: isolate;
     overflow: hidden;
-    padding: clamp(46px, 5vw, 72px) clamp(18px, 5vw, 72px) 72px;
+    padding: 30px clamp(18px, 5vw, 72px) 72px;
     scroll-margin-top: 64px;
-    background:
-        radial-gradient(circle at 50% 0, rgba(49,86,130,.25), transparent 38%),
-        linear-gradient(180deg, #08101b, #04070c);
-    border-top: 1px solid rgba(242,207,99,.12);
+    background: transparent;
+    border-top: none;
 }
 
-.casino-public-games::before {
-    content: "";
-    position: absolute;
-    z-index: -2;
-    inset: 0;
-    opacity: .22;
-    background: repeating-linear-gradient(105deg, transparent 0 12%, rgba(255,225,135,.035) 13%, transparent 18%);
-}
 
 .casino-public-games .lobby-header,
 .casino-public-games .casino-game-grid {

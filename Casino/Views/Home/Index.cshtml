@@ -23,28 +23,22 @@
         <div class="casino-welcome-content">
             <div class="casino-suit-row">♠ &nbsp; ♦ &nbsp; ♣ &nbsp; ♥</div>
             <p class="casino-eyebrow">WELCOME TO</p>
-            <h1>CRAIGS CASINO</h1>
+            <img src="/images/craigscasino.png"
+                 class="casino-main-logo"
+                 alt="Craigs Casino" />
             <p class="casino-welcome-copy">Pick a game, take your seat and play with credits.</p>
 
             <div class="casino-welcome-actions">
-                <a class="casino-enter-button" href="#games">VIEW GAMES</a>
+                
 
                 @if (!isSignedIn)
                 {
-                    <a class="casino-register-link"
-                       asp-area="Identity"
-                       asp-page="/Account/Register"
-                       asp-route-returnUrl="@Url.Action("Index", "Home")">
-                        Create an account
-                    </a>
                 }
             </div>
         </div>
     </section>
 
     <section id="games" class="casino-public-games">
-        <div class="lobby-ambient lobby-ambient-one"></div>
-        <div class="lobby-ambient lobby-ambient-two"></div>
 
         <div class="lobby-header">
             <div>
@@ -64,11 +58,7 @@
 
             @if (isSignedIn)
             {
-                <div class="lobby-wallet">
-                    <span>BALANCE</span>
-                    <strong>@credits.ToString("N0")</strong>
-                    <small>CREDITS</small>
-                </div>
+               
             }
         </div>
 

@@ -19,10 +19,6 @@
         </div>
 
         <div class="reel-catch-status">
-            <div class="status-pill">
-                <span>Balance</span>
-                <strong id="balance">@Model.Credits</strong>
-            </div>
             <div class="status-pill bonus-status @(freeSpins > 0 ? "active" : "")" id="bonusStatus">
                 <span>Free Spins</span>
                 <strong id="freeSpins">@freeSpins</strong>
@@ -33,7 +29,7 @@
             </div>
             <div class="status-pill multiplier-pill">
                 <span>Collector</span>
-                <strong id="collectorMultiplier">x@collectorMultiplier</strong>
+                <strong id="collectorMultiplier">@collectorMultiplier</strong>
             </div>
         </div>
 
