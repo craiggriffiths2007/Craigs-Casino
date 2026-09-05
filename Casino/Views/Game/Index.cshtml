@@ -1,4 +1,4 @@
-﻿@model Casino.Models.PlayerAccount
+@model Casino.Models.PlayerAccount
 
 @{
     ViewData["Title"] = "Slot Game";
@@ -69,6 +69,8 @@
     </div>
 </div>
 
+<button id="gameAudioButton" class="game-audio-button" type="button" title="Mute / unmute game audio">🔊</button>
+
 <form id="antiForgeryForm">
     @Html.AntiForgeryToken()
 </form>
@@ -88,6 +90,47 @@
         const sleep = ms =>
             new Promise(resolve => setTimeout(resolve, ms));
 
+        // Original Phoenix audio. Browsers only allow music to start after
+        // the player's first interaction, so the theme begins on first spin.
+        const phoenixTheme = new Audio('/audio/phoenix-theme.ogg');
+        phoenixTheme.loop = true;
+        phoenixTheme.volume = 0.22;
+
+        const phoenixSfx = {
+            drop: new Audio('/audio/phoenix-drop.ogg'),
+            win: new Audio('/audio/phoenix-win.ogg'),
+            flare: new Audio('/audio/phoenix-flare.ogg')
+        };
+        phoenixSfx.drop.volume = 0.34;
+        phoenixSfx.win.volume = 0.48;
+        phoenixSfx.flare.volume = 0.42;
+
+        let gameMuted = false;
+        let musicStarted = false;
+        const audioButton = document.getElementById('gameAudioButton');
+
+        function startPhoenixMusic() {
+            if (musicStarted || gameMuted) return;
+            musicStarted = true;
+            phoenixTheme.play().catch(() => { musicStarted = false; });
+        }
+
+        function playPhoenixSound(name) {
+            if (gameMuted) return;
+            const source = phoenixSfx[name];
+            if (!source) return;
+            const sound = source.cloneNode();
+            sound.volume = source.volume;
+            sound.play().catch(() => {});
+        }
+
+        audioButton.addEventListener('click', () => {
+            gameMuted = !gameMuted;
+            phoenixTheme.muted = gameMuted;
+            audioButton.textContent = gameMuted ? '🔇' : '🔊';
+            if (!gameMuted) startPhoenixMusic();
+        });
+
         // True once a real board has been displayed.  On later spins the
         // existing symbols fall away before the next board drops in.
         let boardHasLanded = false;
@@ -96,6 +139,8 @@
 
             spinButton.disabled = true;
             winMessage.textContent = "";
+            startPhoenixMusic();
+            playPhoenixSound('drop');
 
             const bet =
                 document.getElementById("bet").value;
@@ -165,6 +210,7 @@
 
                     winMessage.textContent =
                         `WIN ${cascade.win} credits`;
+                    playPhoenixSound('win');
 
                     await playCascade(cascade);
                 }
@@ -781,6 +827,7 @@
         }
 
         async function showPhoenix(reel) {
+            playPhoenixSound('flare');
             const overlay =
                 document.getElementById("phoenixOverlay");
 

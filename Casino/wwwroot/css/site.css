@@ -1695,3 +1695,24 @@ html {
         scroll-margin-top: 56px;
     }
 }
+
+/* Per-game audio control -------------------------------------------------- */
+.game-audio-button {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 250;
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(242,207,99,.55);
+    border-radius: 50%;
+    background: rgba(5,10,17,.82);
+    color: #fff;
+    font-size: 1.15rem;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0,0,0,.38), 0 0 16px rgba(242,207,99,.08);
+    backdrop-filter: blur(8px);
+}
+.game-audio-button:hover { border-color: var(--casino-gold); transform: translateY(-1px); }

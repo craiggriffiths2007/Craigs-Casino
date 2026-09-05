@@ -117,6 +117,8 @@
     </div>
 </div>
 
+<button id="gameAudioButton" class="game-audio-button" type="button" title="Mute / unmute game audio">🔊</button>
+
 <form id="antiForgeryForm">@Html.AntiForgeryToken()</form>
 
 @section Scripts {
@@ -151,6 +153,44 @@
     let freeSpins = @freeSpins;
     let spinning = false;
     let autoPlaying = false;
+
+    // Original Reel Catch audio: light underwater theme plus reel/coin effects.
+    const catchTheme = new Audio('/audio/reelcatch-theme.ogg');
+    catchTheme.loop = true;
+    catchTheme.volume = 0.20;
+    const catchSfx = {
+        spin: new Audio('/audio/reel-spin.ogg'),
+        stop: new Audio('/audio/reel-stop.ogg'),
+        win: new Audio('/audio/reel-win.ogg'),
+        bonus: new Audio('/audio/reel-bonus.ogg')
+    };
+    catchSfx.spin.volume = 0.22;
+    catchSfx.stop.volume = 0.32;
+    catchSfx.win.volume = 0.48;
+    catchSfx.bonus.volume = 0.52;
+    let gameMuted = false;
+    let musicStarted = false;
+    const audioButton = document.getElementById('gameAudioButton');
+
+    function startCatchMusic() {
+        if (musicStarted || gameMuted) return;
+        musicStarted = true;
+        catchTheme.play().catch(() => { musicStarted = false; });
+    }
+    function playCatchSound(name) {
+        if (gameMuted) return;
+        const source = catchSfx[name];
+        if (!source) return;
+        const sound = source.cloneNode();
+        sound.volume = source.volume;
+        sound.play().catch(() => {});
+    }
+    audioButton.addEventListener('click', () => {
+        gameMuted = !gameMuted;
+        catchTheme.muted = gameMuted;
+        audioButton.textContent = gameMuted ? '🔇' : '🔊';
+        if (!gameMuted) startCatchMusic();
+    });
 
     betSelect.disabled = freeSpins > 0;
     autoButton.disabled = freeSpins <= 0;
@@ -328,6 +368,7 @@
         reelEl.classList.add('has-resting-strip');
         reelEl.classList.remove('is-spinning');
         reelEl.classList.add('reel-settle');
+        playCatchSound('stop');
 
                 setTimeout(() => {
                     reelEl.classList.remove('reel-settle');
@@ -399,6 +440,8 @@
         autoButton.disabled = true;
         clearEffects();
         winMessage.textContent = freeSpins > 0 ? 'Free spin...' : 'Casting...';
+        startCatchMusic();
+        playCatchSound('spin');
 
         const body = new URLSearchParams();
         body.append('bet', betSelect.value);
@@ -428,6 +471,12 @@
             highlightWins(data.wins);
             balance.textContent = data.balance;
             updateBonusUi(data);
+
+            if (data.extraFreeSpins > 0 || data.bonusTriggered) {
+                playCatchSound('bonus');
+            } else if (data.win > 0 || data.collectorWin > 0) {
+                playCatchSound('win');
+            }
 
             if (data.extraFreeSpins > 0) {
                 winMessage.textContent = `COLLECTOR UPGRADE! x${data.collectorMultiplier} + ${data.extraFreeSpins} FREE SPINS`;
