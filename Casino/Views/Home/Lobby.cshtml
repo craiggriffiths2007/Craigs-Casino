@@ -1,0 +1,22 @@
+@{
+    ViewData["Title"] = "Lobby";
+}
+
+<div class="container mt-4">
+    <h1>Game Lobby</h1>
+    <p>Choose a game to play.</p>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <img src="/images/phoenix-bg.png" class="card-img-top" alt="Slots">
+                <div class="card-body">
+                    <h5 class="card-title">Phoenix Slots</h5>
+                    <p class="card-text">A 5x3 slots game with cascading wins.</p>
+                    <a asp-controller="Game" asp-action="Index" class="btn btn-primary">Play</a>
+                </div>
+            </div>
+        </div>
+        <!-- Add other games here -->
+    </div>
+</div>
