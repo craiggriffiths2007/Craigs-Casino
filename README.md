@@ -10,6 +10,14 @@ If you enjoy playing slot games and have ever wondered *"How did they make that 
 
 There is **no real-money gambling**. Everything uses virtual credits and the project exists purely for development, education and entertainment.
 
+## 🎮 Try it online
+
+**Want to see it running?**
+
+👉 **[Play Craigs Casino](https://craigscasino.runasp.net/)**
+
+Create a free player account and try the games using virtual credits — no real money is involved.
+
 ## 🎮 Games
 
 ### 🔥 Phoenix Slots
