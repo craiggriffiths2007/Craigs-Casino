@@ -1,22 +1,20 @@
-@{
-    ViewData["Title"] = "Lobby";
-}
-
-<div class="container mt-4">
-    <h1>Game Lobby</h1>
-    <p>Choose a game to play.</p>
-
-    <div class="row">
-        <div class="col-md-4">
-            <div class="card mb-3">
-                <img src="/images/phoenix-bg.png" class="card-img-top" alt="Slots">
-                <div class="card-body">
-                    <h5 class="card-title">Phoenix Slots</h5>
-                    <p class="card-text">A 5x3 slots game with cascading wins.</p>
-                    <a asp-controller="Game" asp-action="Index" class="btn btn-primary">Play</a>
-                </div>
-            </div>
-        </div>
-        <!-- Add other games here -->
+@{ ViewData["Title"] = "Game Lobby"; var credits = (long)(ViewBag.Credits ?? 10000L); }
+<section class="casino-lobby">
+    <div class="lobby-ambient lobby-ambient-one"></div><div class="lobby-ambient lobby-ambient-two"></div>
+    <div class="lobby-header">
+        <div><p class="casino-eyebrow">CASINO FLOOR</p><h1>CHOOSE YOUR GAME</h1><p>Pick a machine and play.</p></div>
+        <div class="lobby-wallet"><span>BALANCE</span><strong>@credits.ToString("N0")</strong><small>CREDITS</small></div>
     </div>
-</div>
+    <div class="casino-game-grid">
+        <a asp-controller="Game" asp-action="Index" class="casino-game-card phoenix-game">
+            <div class="game-art phoenix-art"><img src="/images/phoenix-bg.png" alt="Phoenix Slots" /><div class="game-art-shade"></div><div class="game-badge">CASCADE SLOTS</div></div>
+            <div class="game-card-info"><div><h2>PHOENIX</h2><p>5 × 3 cascading wins</p></div><span class="game-play">PLAY</span></div>
+        </a>
+        <a asp-controller="Game" asp-action="ReelCatch" class="casino-game-card reelcatch-game">
+            <div class="game-art reelcatch-art"><div class="reelcatch-water"></div><span class="lobby-hook">🎣</span><span class="lobby-fish">🐟</span><div class="game-badge">10 PAYLINES</div></div>
+            <div class="game-card-info"><div><h2>REEL CATCH</h2><p>Cash fish • free spins • collector</p></div><span class="game-play">PLAY</span></div>
+        </a>
+        <div class="casino-game-card coming-soon" aria-disabled="true"><div class="game-art coming-art"><span>♛</span><div class="game-badge">COMING SOON</div></div><div class="game-card-info"><div><h2>NEW GAME</h2><p>Another machine is on the way</p></div></div></div>
+    </div>
+    <p class="lobby-tip">SELECT A GAME TO BEGIN</p>
+</section>

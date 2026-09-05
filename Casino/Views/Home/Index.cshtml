@@ -1,12 +1,14 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
-}
-
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    @if (User.IsInRole("Admin"))
-    {
-        <span>Admin</span>
-    }
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+@{ ViewData["Title"] = "Welcome"; }
+<section class="casino-welcome">
+    <div class="casino-welcome-glow"></div>
+    <div class="casino-welcome-content">
+        <div class="casino-suit-row">♠ &nbsp; ♦ &nbsp; ♣ &nbsp; ♥</div>
+        <p class="casino-eyebrow">WELCOME TO</p>
+        <h1>CASINO</h1>
+        <p class="casino-welcome-copy">Pick a game, take your seat and play with credits.</p>
+        <div class="casino-welcome-actions">
+            <a class="casino-enter-button" asp-area="Identity" asp-page="/Account/Login" asp-route-returnUrl="@Url.Action("Lobby", "Home")">ENTER CASINO</a>
+            <a class="casino-register-link" asp-area="Identity" asp-page="/Account/Register">Create an account</a>
+        </div>
+    </div>
+</section>

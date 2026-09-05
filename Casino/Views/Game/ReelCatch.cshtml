@@ -1,0 +1,599 @@
+@model Casino.Models.PlayerAccount
+
+@{
+    ViewData["Title"] = "Reel Catch";
+    var freeSpins = (int)(ViewBag.FreeSpinsRemaining ?? 0);
+    var collectorCount = (int)(ViewBag.CollectorCount ?? 0);
+    var collectorMultiplier = (int)(ViewBag.CollectorMultiplier ?? 1);
+    var bonusBet = (int)(ViewBag.BonusBet ?? 0);
+}
+
+<div class="reel-catch-page">
+    <div class="reel-catch-shell">
+        <div class="reel-catch-titlebar">
+            <div>
+                <div class="reel-catch-kicker">CAST • CATCH • COLLECT</div>
+                <h1>REEL CATCH</h1>
+            </div>
+            <a asp-controller="Home" asp-action="Lobby" class="reel-catch-lobby-link">← Lobby</a>
+        </div>
+
+        <div class="reel-catch-status">
+            <div class="status-pill">
+                <span>Balance</span>
+                <strong id="balance">@Model.Credits</strong>
+            </div>
+            <div class="status-pill bonus-status @(freeSpins > 0 ? "active" : "")" id="bonusStatus">
+                <span>Free Spins</span>
+                <strong id="freeSpins">@freeSpins</strong>
+            </div>
+            <div class="status-pill">
+                <span>Fishermen</span>
+                <strong><span id="collectorCount">@collectorCount</span> / 12</strong>
+            </div>
+            <div class="status-pill multiplier-pill">
+                <span>Collector</span>
+                <strong id="collectorMultiplier">x@collectorMultiplier</strong>
+            </div>
+        </div>
+
+        <div class="reel-catch-machine">
+            <div class="undersea-rays" aria-hidden="true"></div>
+
+<div class="reel-area">
+
+            <div class="reel-bubbles bubbles-1" aria-hidden="true"></div>
+            <div class="reel-bubbles bubbles-2" aria-hidden="true"></div>
+            <div class="reel-bubbles bubbles-3" aria-hidden="true"></div>
+            <div class="reel-bubbles bubbles-4" aria-hidden="true"></div>
+
+            <div class="reel-catch-board" id="reels" aria-label="Reel Catch slot reels">
+                @for (var reel = 0; reel < 5; reel++)
+                {
+                    <div class="catch-reel" data-reel="@reel">
+                        <div class="catch-reel-window">
+                            @for (var row = 0; row < 3; row++)
+                            {
+                                <div class="catch-cell" data-row="@row" data-reel="@reel">
+                                    <div class="catch-symbol">
+                                        <span class="symbol-icon"></span>
+                                        <span class="symbol-name"></span>
+                                    </div>
+                                    <span class="fish-prize"></span>
+                                </div>
+                            }
+                        </div>
+                        <div class="catch-spin-strip" aria-hidden="true"></div>
+                    </div>
+                }
+            </div>
+</div>
+
+            <div class="reel-catch-message" id="winMessage">Choose your bet and cast the reels.</div>
+
+            <div class="collector-track">
+                <div class="collector-progress">
+                    <div class="collector-fill" id="collectorFill" style="width:@(Math.Min(collectorCount, 12) / 12.0 * 100)%"></div>
+                    <span class="collector-marker marker-4">4<br><b>x2</b></span>
+                    <span class="collector-marker marker-8">8<br><b>x3</b></span>
+                    <span class="collector-marker marker-12">12<br><b>x10</b></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="reel-catch-controls">
+            <div class="bet-control">
+                <label for="bet">BET</label>
+                <select id="bet" class="form-select">
+                    @foreach (var amount in new[] { 10, 20, 50, 100, 200, 500, 1000 })
+                    {
+                        if ((freeSpins > 0 ? bonusBet : 20) == amount)
+                        {
+                            <option value="@amount" selected>@amount</option>
+                        }
+                        else
+                        {
+                            <option value="@amount">@amount</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <button id="spinButton" class="catch-spin-button" type="button">
+                <span id="spinButtonText">@(freeSpins > 0 ? "FREE SPIN" : "SPIN")</span>
+            </button>
+
+            <button id="autoButton" class="catch-auto-button" type="button" title="Automatically play remaining free spins">
+                AUTO
+            </button>
+        </div>
+
+        <div class="reel-catch-help">
+            <span>10 paylines</span>
+            <span>🎣 Fisherman is wild</span>
+            <span>🐚 3+ shells = 10 free spins</span>
+            <span>Bonus fishermen collect 💰 fish values</span>
+        </div>
+    </div>
+</div>
+
+<form id="antiForgeryForm">@Html.AntiForgeryToken()</form>
+
+@section Scripts {
+<script>
+(() => {
+    const symbolInfo = {
+        J:          { icon: 'J',  name: 'J',       cls: 'symbol-J' },
+        Q:          { icon: 'Q',  name: 'Q',       cls: 'symbol-Q' },
+        K:          { icon: 'K',  name: 'K',       cls: 'symbol-K' },
+        A:          { icon: 'A',  name: 'A',       cls: 'symbol-A' },
+        Tackle:     { icon: '🧰', name: 'TACKLE',  cls: 'symbol-Tackle' },
+        Boat:       { icon: '🛶', name: 'BOAT',    cls: 'symbol-Boat' },
+        Fish:       { icon: '🐟', name: 'FISH',    cls: 'symbol-Fish' },
+        Fisherman:  { icon: '🎣', name: 'WILD',    cls: 'symbol-Fisherman' },
+        Scatter:    { icon: '🐚', name: 'BONUS',   cls: 'symbol-Scatter' }
+    };
+
+    const cells = [...document.querySelectorAll('.catch-cell')];
+    const spinButton = document.getElementById('spinButton');
+    const spinButtonText = document.getElementById('spinButtonText');
+    const autoButton = document.getElementById('autoButton');
+    const betSelect = document.getElementById('bet');
+    const balance = document.getElementById('balance');
+    const winMessage = document.getElementById('winMessage');
+    const freeSpinsEl = document.getElementById('freeSpins');
+    const collectorCountEl = document.getElementById('collectorCount');
+    const collectorMultiplierEl = document.getElementById('collectorMultiplier');
+    const collectorFill = document.getElementById('collectorFill');
+    const bonusStatus = document.getElementById('bonusStatus');
+    const token = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]').value;
+
+    let freeSpins = @freeSpins;
+    let spinning = false;
+    let autoPlaying = false;
+
+    betSelect.disabled = freeSpins > 0;
+    autoButton.disabled = freeSpins <= 0;
+
+    function getCell(row, reel) {
+        return document.querySelector(`.catch-cell[data-row="${row}"][data-reel="${reel}"]`);
+    }
+
+    function clearEffects() {
+        cells.forEach(cell => {
+            cell.classList.remove('winner', 'collector-hit', 'scatter-hit');
+
+            const prize = cell.querySelector('.fish-prize');
+            prize.textContent = '';
+            prize.classList.remove('visible');
+        });
+
+        document.querySelectorAll('.winner-symbol').forEach(symbol => {
+            symbol.classList.remove('winner-symbol');
+        });
+    }
+
+    function setSymbol(cell, symbol) {
+        const info = symbolInfo[symbol] ?? symbolInfo.Fish;
+        const holder = cell.querySelector('.catch-symbol');
+        holder.className = `catch-symbol ${info.cls}`;
+        holder.innerHTML = `<span class="symbol-icon">${info.icon}</span><span class="symbol-name">${info.name}</span>`;
+    }
+
+    function randomDisplaySymbol() {
+        const keys = Object.keys(symbolInfo);
+        return keys[Math.floor(Math.random() * keys.length)];
+    }
+
+            function initialiseBubbles() {
+                const columns = document.querySelectorAll('.reel-bubbles');
+
+                columns.forEach((column, columnIndex) => {
+                    column.innerHTML = '';
+
+                    // More individual bubbles = smoother, continuous flow.
+                    const bubbleCount = 10;
+
+                    for (let i = 0; i < bubbleCount; i++) {
+                        const bubble = document.createElement('span');
+                        bubble.className = 'reel-bubble';
+
+                        const size = 5 + Math.random() * 7;
+                        const x = 25 + Math.random() * 50;
+
+                        // Slightly different speed for every bubble.
+                        const speed = 14 + Math.random() * 8;
+
+                        // Spread bubbles evenly through the animation,
+                        // with a small per-column offset.
+                        const delay =
+                            -((i / bubbleCount) * speed)
+                            - (columnIndex * 1.35);
+
+                        const wanderSpeed = 3.5 + Math.random() * 3;
+                        const wanderDelay = -(Math.random() * wanderSpeed);
+
+                        bubble.style.setProperty('--size', `${size}px`);
+                        bubble.style.setProperty('--x', `${x}%`);
+                        bubble.style.setProperty('--speed', `${speed}s`);
+                        bubble.style.setProperty('--delay', `${delay}s`);
+                        bubble.style.setProperty('--wander-speed', `${wanderSpeed}s`);
+                        bubble.style.setProperty('--wander-delay', `${wanderDelay}s`);
+                        bubble.style.setProperty('--opacity', 0.3 + Math.random() * 0.35);
+
+                        column.appendChild(bubble);
+                    }
+                });
+            }
+
+
+               function initialiseRandomBoard() {
+        for (let reel = 0; reel < 5; reel++) {
+            const reelEl = document.querySelector(
+                `.catch-reel[data-reel="${reel}"]`
+            );
+
+            const strip = reelEl.querySelector('.catch-spin-strip');
+
+            const initialSymbols = [
+                randomDisplaySymbol(),
+                randomDisplaySymbol(),
+                randomDisplaySymbol()
+            ];
+
+            // Update the underlying cells.
+            for (let row = 0; row < 3; row++) {
+                setSymbol(
+                    getCell(row, reel),
+                    initialSymbols[row]
+                );
+            }
+
+            // IMPORTANT: give the resting strip the same cell height
+            // that it receives during an actual spin.
+            const cellHeight = reelEl.getBoundingClientRect().height / 3;
+
+            strip.style.setProperty(
+                '--reel-cell-height',
+                `${cellHeight}px`
+            );
+
+            strip.innerHTML = initialSymbols
+                .map(symbolMarkup)
+                .join('');
+
+            strip.style.transition = 'none';
+            strip.style.transform = 'translate3d(0, 0, 0)';
+            strip.classList.add('visible');
+
+            reelEl.classList.add('has-resting-strip');
+        }
+    }
+
+
+    function symbolMarkup(symbol) {
+        const info = symbolInfo[symbol] ?? symbolInfo.Fish;
+        return `<div class="catch-strip-symbol ${info.cls}"><span class="symbol-icon">${info.icon}</span><span class="symbol-name">${info.name}</span></div>`;
+    }
+
+    function fillSpinStrip(strip, finalSymbols) {
+        const symbols = [...finalSymbols];
+
+        // More symbols = more distance travelled = faster-looking reel.
+        for (let i = 0; i < 32; i++)
+            symbols.push(randomDisplaySymbol());
+
+        strip.innerHTML = symbols.map(symbolMarkup).join('');
+        return symbols.length;
+    }
+
+    async function animateOneReel(reel, board, startDelay, duration) {
+        const reelEl = document.querySelector(`.catch-reel[data-reel="${reel}"]`);
+        const strip = reelEl.querySelector('.catch-spin-strip');
+        const windowEl = reelEl.querySelector('.catch-reel-window');
+        const finalSymbols = [board[0][reel], board[1][reel], board[2][reel]];
+
+        await delay(startDelay);
+
+        const symbolCount = fillSpinStrip(strip, finalSymbols);
+        const cellHeight = reelEl.getBoundingClientRect().height / 3;
+        const startY = -cellHeight * (symbolCount - 3);
+        strip.style.setProperty('--reel-cell-height', `${cellHeight}px`);
+
+        strip.style.transition = 'none';
+        strip.style.transform = `translate3d(0, ${startY}px, 0)`;
+        strip.classList.add('visible');
+        windowEl.classList.add('reel-spinning');
+        reelEl.classList.add('is-spinning');
+
+        // Force the starting transform to be painted before the transition begins.
+        strip.getBoundingClientRect();
+
+                strip.style.transition = `transform ${duration}ms linear`;
+        strip.style.transform = 'translate3d(0, 0, 0)';
+
+                await delay(duration);
+
+        // Keep the animated strip as the resting reel.  There is no visual
+        // hand-off to a second layer, which removes the end-of-spin flicker.
+        // The underlying cells are still synchronised for win/prize overlays.
+        for (let row = 0; row < 3; row++) {
+            setSymbol(getCell(row, reel), board[row][reel]);
+        }
+
+        strip.style.transition = 'none';
+        strip.style.transform = 'translate3d(0, 0, 0)';
+        strip.classList.add('visible');
+        windowEl.classList.remove('reel-spinning');
+        reelEl.classList.add('has-resting-strip');
+        reelEl.classList.remove('is-spinning');
+        reelEl.classList.add('reel-settle');
+
+                setTimeout(() => {
+                    reelEl.classList.remove('reel-settle');
+                }, 260);
+    }
+
+    async function animateReels(board) {
+        // Big-Bass-style cadence: the reels launch almost together, then stop
+        // distinctly from left to right. Later reels travel a little longer.
+        const spins = [];
+        for (let reel = 0; reel < 5; reel++) {
+            spins.push(animateOneReel(
+                reel,
+                board,
+                reel * 40,
+                1400 + (reel * 220)
+            ));
+        }
+
+        await Promise.all(spins);
+    }
+
+    function showFishPrizes(prizes, collected) {
+        prizes.forEach(prize => {
+            const cell = getCell(prize.row, prize.reel);
+            const badge = cell.querySelector('.fish-prize');
+            badge.textContent = prize.value;
+            badge.classList.add('visible');
+            if (collected) cell.classList.add('collector-hit');
+        });
+    }
+
+    function highlightWins(wins) {
+        wins.forEach(win => {
+            win.positions.forEach(pos => {
+                // Underlying cell
+                getCell(pos.row, pos.reel)?.classList.add('winner');
+
+                // Visible symbol on the resting spin strip
+                const reelEl = document.querySelector(
+                    `.catch-reel[data-reel="${pos.reel}"]`
+                );
+
+                const stripSymbols = reelEl
+                    ?.querySelectorAll('.catch-spin-strip .catch-strip-symbol');
+
+                // The first three symbols in the strip are the final symbols.
+                stripSymbols?.[pos.row]?.classList.add('winner-symbol');
+            });
+        });
+    }
+
+    function updateBonusUi(data) {
+        freeSpins = data.freeSpinsRemaining;
+        freeSpinsEl.textContent = freeSpins;
+        collectorCountEl.textContent = data.collectorCount;
+        collectorMultiplierEl.textContent = `x${data.collectorMultiplier}`;
+        collectorFill.style.width = `${Math.min(data.collectorCount, 12) / 12 * 100}%`;
+        bonusStatus.classList.toggle('active', freeSpins > 0);
+        betSelect.disabled = freeSpins > 0;
+        autoButton.disabled = freeSpins <= 0;
+        spinButtonText.textContent = freeSpins > 0 ? 'FREE SPIN' : 'SPIN';
+    }
+
+    async function playSpin() {
+        if (spinning) return;
+        spinning = true;
+        spinButton.disabled = true;
+        autoButton.disabled = true;
+        clearEffects();
+        winMessage.textContent = freeSpins > 0 ? 'Free spin...' : 'Casting...';
+
+        const body = new URLSearchParams();
+        body.append('bet', betSelect.value);
+        body.append('freeSpin', freeSpins > 0 ? 'true' : 'false');
+        body.append('__RequestVerificationToken', token);
+
+        try {
+            const response = await fetch('@Url.Action("ReelCatchSpin", "Game")', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                winMessage.textContent = data.message ?? 'Spin failed.';
+                return;
+            }
+
+            await animateReels(data.board);
+
+            data.board.flatMap((row, rowIndex) => row.map((symbol, reelIndex) => ({ symbol, rowIndex, reelIndex })))
+                .filter(x => x.symbol === 'Scatter')
+                .forEach(x => getCell(x.rowIndex, x.reelIndex).classList.add('scatter-hit'));
+
+            showFishPrizes(data.fishPrizes, data.fishermanLanded);
+            highlightWins(data.wins);
+            balance.textContent = data.balance;
+            updateBonusUi(data);
+
+            if (data.extraFreeSpins > 0) {
+                winMessage.textContent = `COLLECTOR UPGRADE! x${data.collectorMultiplier} + ${data.extraFreeSpins} FREE SPINS`;
+            } else if (data.bonusTriggered) {
+                winMessage.textContent = 'BONUS! 10 FREE SPINS AWARDED';
+            } else if (data.collectorWin > 0) {
+                winMessage.textContent = `FISH COLLECTED ${data.collectorWin} • TOTAL WIN ${data.win}`;
+            } else if (data.win > 0) {
+                winMessage.textContent = `WIN ${data.win} CREDITS`;
+            } else if (data.isFreeSpin && data.fishermanLanded) {
+                winMessage.textContent = 'Fisherman landed — no cash fish this spin';
+            } else {
+                winMessage.textContent = data.isFreeSpin ? `${data.freeSpinsRemaining} free spins remaining` : 'No win — cast again';
+            }
+
+            if (autoPlaying && freeSpins > 0) {
+                await delay(850);
+                spinning = false;
+                await playSpin();
+                return;
+            }
+
+            if (freeSpins <= 0) {
+                autoPlaying = false;
+                autoButton.classList.remove('active');
+                autoButton.textContent = 'AUTO';
+            }
+        } catch (error) {
+            console.error(error);
+            winMessage.textContent = 'Something went wrong while spinning.';
+            autoPlaying = false;
+        } finally {
+            spinning = false;
+            spinButton.disabled = false;
+            autoButton.disabled = freeSpins <= 0;
+        }
+    }
+
+            initialiseRandomBoard();
+            initialiseBubbles();
+    spinButton.addEventListener('click', playSpin);
+    autoButton.addEventListener('click', async () => {
+        if (freeSpins <= 0 || spinning) return;
+        autoPlaying = !autoPlaying;
+        autoButton.classList.toggle('active', autoPlaying);
+        autoButton.textContent = autoPlaying ? 'STOP' : 'AUTO';
+        if (autoPlaying) await playSpin();
+    });
+
+    function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+})();
+</script>
+<style>
+        .reel-settle .catch-spin-strip {
+            animation: reelCatchSettle 260ms ease-out;
+        }
+
+        @@keyframes reelCatchSettle {
+            0% {
+                transform: translate3d(0, 0, 0);
+            }
+
+            40% {
+                transform: translate3d(0, 8px, 0);
+            }
+
+            68% {
+                transform: translate3d(0, -2px, 0);
+            }
+
+            100% {
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        .catch-cell.winner .catch-symbol,
+        .catch-cell.winner .catch-strip-symbol {
+            animation: winningSymbolPulse 700ms ease-in-out infinite;
+        }
+
+        .catch-strip-symbol.winner-symbol {
+            animation: winningSymbolPulse 700ms ease-in-out infinite;
+        }
+
+        @@keyframes winningSymbolPulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.12);
+            }
+        }
+
+        .reel-area {
+            position: relative;
+        }
+
+        .reel-bubbles {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 40px;
+            pointer-events: none;
+            z-index: 4;
+            overflow: hidden;
+            transform: translateX(-50%);
+        }
+
+        .bubbles-1 {
+            left: 20%;
+        }
+
+        .bubbles-2 {
+            left: 40%;
+        }
+
+        .bubbles-3 {
+            left: 60%;
+        }
+
+        .bubbles-4 {
+            left: 80%;
+        }
+
+        .reel-bubble {
+            position: absolute;
+            bottom: -24px;
+            width: var(--size);
+            height: var(--size);
+            left: var(--x);
+            border: 2px solid rgba(190, 240, 255, 0.45);
+            border-radius: 50%;
+            opacity: var(--opacity);
+            animation: reelBubbleRise var(--speed) linear infinite, reelBubbleWander var(--wander-speed) ease-in-out infinite alternate;
+            animation-delay: var(--delay), var(--wander-delay);
+        }
+
+        @@keyframes reelBubbleRise {
+            from {
+                bottom: -24px;
+            }
+
+            to {
+                bottom: calc(100% + 24px);
+            }
+        }
+
+        @@keyframes reelBubbleWander {
+            0% {
+                margin-left: -5px;
+            }
+
+            35% {
+                margin-left: 3px;
+            }
+
+            70% {
+                margin-left: -2px;
+            }
+
+            100% {
+                margin-left: 5px;
+            }
+        }
+
+        
+</style>
+}
