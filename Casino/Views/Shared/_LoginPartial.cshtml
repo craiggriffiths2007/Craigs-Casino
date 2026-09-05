@@ -4,7 +4,7 @@
 <div class="casino-accountbar">
 @if (SignInManager.IsSignedIn(User))
 {
-    <a class="casino-nav-link" asp-controller="Home" asp-action="Lobby">LOBBY</a>
+    <a class="casino-nav-link" href="@Url.Action("Index", "Home")#games">LOBBY</a>
     <span class="casino-player">@User.Identity?.Name</span>
     <form asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home")">
         <button type="submit" class="casino-icon-button" title="Log out">⏻</button>
@@ -13,6 +13,6 @@
 else
 {
     <a class="casino-nav-link" asp-area="Identity" asp-page="/Account/Register">REGISTER</a>
-    <a class="casino-nav-link casino-nav-primary" asp-area="Identity" asp-page="/Account/Login" asp-route-returnUrl="@Url.Action("Lobby", "Home")">LOGIN</a>
+    <a class="casino-nav-link casino-nav-primary" asp-area="Identity" asp-page="/Account/Login" asp-route-returnUrl="@Url.Action("Index", "Home")">LOGIN</a>
 }
 </div>

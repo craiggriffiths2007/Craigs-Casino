@@ -19,10 +19,17 @@ namespace Casino.Controllers
             _userManager = userManager;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
             if (User.Identity?.IsAuthenticated == true)
-                return RedirectToAction(nameof(Lobby));
+            {
+                var userId = _userManager.GetUserId(User);
+                var player = userId == null
+                    ? null
+                    : await _context.PlayerAccounts.FirstOrDefaultAsync(p => p.UserId == userId);
+
+                ViewBag.Credits = player?.Credits ?? 10000;
+            }
 
             return View();
         }

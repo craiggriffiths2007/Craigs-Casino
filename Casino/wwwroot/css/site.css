@@ -1606,3 +1606,92 @@ a.casino-game-card:hover .game-art img {
         transform: translateY(-15px)
     }
 }
+
+/* ========================================================================== */
+/* Public casino landing page: welcome hero + visible game floor              */
+/* ========================================================================== */
+html {
+    scroll-behavior: smooth;
+}
+
+.casino-public-home {
+    position: relative;
+    min-height: calc(100vh - 64px);
+    background: #04070c;
+}
+
+.casino-public-home .casino-home-hero {
+    height: auto;
+    min-height: clamp(500px, 62vh, 650px);
+    padding: 62px 18px 54px;
+    place-items: center;
+}
+
+.casino-public-home .casino-welcome-content {
+    transform: translateY(-8px);
+}
+
+.casino-public-games {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    padding: clamp(46px, 5vw, 72px) clamp(18px, 5vw, 72px) 72px;
+    scroll-margin-top: 64px;
+    background:
+        radial-gradient(circle at 50% 0, rgba(49,86,130,.25), transparent 38%),
+        linear-gradient(180deg, #08101b, #04070c);
+    border-top: 1px solid rgba(242,207,99,.12);
+}
+
+.casino-public-games::before {
+    content: "";
+    position: absolute;
+    z-index: -2;
+    inset: 0;
+    opacity: .22;
+    background: repeating-linear-gradient(105deg, transparent 0 12%, rgba(255,225,135,.035) 13%, transparent 18%);
+}
+
+.casino-public-games .lobby-header,
+.casino-public-games .casino-game-grid {
+    position: relative;
+    z-index: 2;
+}
+
+.casino-public-games .lobby-header h2 {
+    margin: 0;
+    color: #fff;
+    font-weight: 1000;
+    font-size: clamp(2rem, 5vw, 4rem);
+    letter-spacing: .025em;
+}
+
+.casino-public-games .lobby-header > div > p:not(.casino-eyebrow) {
+    margin: 5px 0 0;
+    color: #8da1b4;
+}
+
+.casino-public-games .lobby-tip {
+    position: relative;
+    z-index: 2;
+}
+
+@media (max-width: 560px) {
+    .casino-public-home {
+        min-height: calc(100dvh - 56px);
+    }
+
+    .casino-public-home .casino-home-hero {
+        min-height: 500px;
+        padding: 48px 14px 42px;
+    }
+
+    .casino-public-home .casino-welcome h1 {
+        font-size: clamp(3.4rem, 20vw, 5.6rem);
+    }
+
+    .casino-public-games {
+        padding: 42px 12px 56px;
+        scroll-margin-top: 56px;
+    }
+}
