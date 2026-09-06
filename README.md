@@ -73,5 +73,3 @@ It does not accept deposits, offer withdrawals or award prizes. All credits used
 Commercial games, names, artwork and other intellectual property remain the property of their respective owners. This project develops original implementations inspired by general slot-game concepts and mechanics.
 
 
-
-**That's what Craigs Casino is about. 🎰**
