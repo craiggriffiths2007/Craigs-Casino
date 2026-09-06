@@ -1,0 +1,13 @@
+﻿{
+  "name": "Craigs Casino",
+  "short_name": "Craigs Casino",
+  "start_url": "/",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "/images/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

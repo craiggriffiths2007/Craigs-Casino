@@ -4,7 +4,7 @@
     ViewData["Title"] = "Slot Game";
 }
 
-<div class="container text-center mt-5">
+<div class="container text-center mt-5 phoenix-game-page">
 
     <h1 class="mb-4">Phoenix Slot</h1>
 
@@ -22,7 +22,6 @@
                         <div class="slot-cell"
                              data-row="@row"
                              data-reel="@reel">
-                            ?
                         </div>
                     }
                 }
@@ -37,7 +36,7 @@
 
     </div>
 
-    <div class="d-flex align-items-end justify-content-center gap-2 mb-3">
+    <div class="d-flex align-items-end justify-content-center gap-2 mb-3 phoenix-controls">
 
         <div>
             <label for="bet" class="d-block">Bet</label>
@@ -85,6 +84,55 @@
         const sleep = ms =>
             new Promise(resolve => setTimeout(resolve, ms));
 
+
+       function initialiseRandomBoard() {
+
+            const symbols = [
+                "bell",
+                "blueorb",
+                "cherry",
+                "diamond",
+                "greenorb",
+                "lemon",
+                "plum",
+                "redorb",
+                "seven",
+                "yelloworb"
+            ];
+
+            for (let row = 0; row < 3; row++) {
+                for (let reel = 0; reel < 5; reel++) {
+
+                    const cell =
+                        getCell(row, reel);
+
+                    const symbol =
+                        symbols[
+                            Math.floor(
+                                Math.random() * symbols.length
+                            )
+                        ];
+
+                    setSymbol(cell, symbol);
+                }
+            }
+        }
+
+initialiseRandomBoard();
+
+        // Measure the live reel geometry instead of assuming every cell is
+        // 100px + 8px gap. This keeps cascades and Phoenix overlays aligned
+        // when the board is scaled down on a phone.
+        function getRowPitch() {
+            const top = getCell(0, 0)?.getBoundingClientRect();
+            const middle = getCell(1, 0)?.getBoundingClientRect();
+
+            if (top && middle)
+                return middle.top - top.top;
+
+            return 108;
+        }
+
         // Original Phoenix audio. Browsers only allow music to start after
         // the player's first interaction, so the theme begins on first spin.
         const phoenixTheme = new Audio('/audio/phoenix-theme.ogg');
@@ -116,7 +164,7 @@
             if (!source) return;
             const sound = source.cloneNode();
             sound.volume = source.volume;
-            sound.play().catch(() => {});
+            sound.play().catch(() => { });
         }
 
         audioButton.addEventListener('click', () => {
@@ -394,9 +442,9 @@
                     cell.style.opacity = "1";
                     cell.style.transition = "none";
 
-                    // Each reel begins at a slightly different height.  The
-                    // rows share that offset so their natural 108px grid
-                    // spacing is preserved while they are falling.
+                    // Each reel begins at a slightly different height.
+                    // The grid itself now supplies the live row spacing while
+                    // the symbols fall into their final cells.
                     const reelStart =
                         -390 -
                         (reel * 24) -
@@ -446,86 +494,228 @@
                 }
             }
 
+            const reelWindow =
+                document.querySelector(".reel-window");
+
+            const windowRect =
+                reelWindow.getBoundingClientRect();
+
+            /*
+             * Animate surviving symbols as temporary floating copies.
+             *
+             * This avoids the old behaviour where the source cell was cleared
+             * and the symbol was recreated in its destination cell before the
+             * browser had painted the starting transform. That could look like
+             * the symbol vanished and then reappeared.
+             */
+            const movers = [];
+            const finalCells = [];
+
             for (let reel = 0; reel < 5; reel++) {
                 const survivors = [];
 
-                // Find surviving symbols bottom to top
+                // Collect surviving symbols bottom-to-top.
                 for (let row = 2; row >= 0; row--) {
                     const key =
                         `${row}-${reel}`;
 
                     if (!removed.has(key)) {
                         survivors.push({
-                            symbol:
-                                boardBefore[row][reel],
-
-                            oldRow:
-                                row
+                            symbol: boardBefore[row][reel],
+                            oldRow: row
                         });
                     }
                 }
 
-                // Clear this reel visually
-                for (let row = 0; row < 3; row++) {
-                    const cell =
-                        getCell(row, reel);
+                let targetRow = 2;
+
+                for (const survivor of survivors) {
+                    const sourceCell =
+                        getCell(survivor.oldRow, reel);
+
+                    const targetCell =
+                        getCell(targetRow, reel);
+
+                    const targetRect =
+                        targetCell.getBoundingClientRect();
+
+                    const sourceImg =
+                        sourceCell.querySelector(".slot-symbol");
+
+                    if (sourceImg) {
+                        // Measure the IMAGE itself, not the 120px cell.
+                        // Using the cell size made the temporary mover expand
+                        // from the normal 108px symbol up to the full cell size.
+                        const sourceImgRect =
+                            sourceImg.getBoundingClientRect();
+
+                        const mover =
+                            sourceImg.cloneNode(true);
+
+                        mover.classList.add("survivor-mover");
+
+                        mover.style.position = "absolute";
+                        mover.style.left =
+                            `${sourceImgRect.left - windowRect.left}px`;
+                        mover.style.top =
+                            `${sourceImgRect.top - windowRect.top}px`;
+                        mover.style.width =
+                            `${sourceImgRect.width}px`;
+                        mover.style.height =
+                            `${sourceImgRect.height}px`;
+                        mover.style.objectFit = "contain";
+                        mover.style.pointerEvents = "none";
+                        mover.style.zIndex = "25";
+                        mover.style.margin = "0";
+
+                        reelWindow.appendChild(mover);
+
+                        // Destination images are centred inside their cells,
+                        // so move the temporary copy to that centred position.
+                        const targetLeft =
+                            targetRect.left +
+                            ((targetRect.width - sourceImgRect.width) / 2);
+
+                        const targetTop =
+                            targetRect.top +
+                            ((targetRect.height - sourceImgRect.height) / 2);
+
+                        const deltaX =
+                            targetLeft - sourceImgRect.left;
+
+                        const deltaY =
+                            targetTop - sourceImgRect.top;
+
+                        movers.push({
+                            element: mover,
+                            deltaX,
+                            deltaY,
+                            delay: (2 - targetRow) * 55
+                        });
+                    }
+
+                    finalCells.push({
+                        row: targetRow,
+                        reel,
+                        symbol: survivor.symbol
+                    });
+
+                    // Keep a direct reference to the destination so this mover
+                    // can hand off to the real symbol on the exact frame it lands.
+                    movers[movers.length - 1].targetRow = targetRow;
+                    movers[movers.length - 1].targetReel = reel;
+
+                    targetRow--;
+                }
+            }
+
+            /*
+             * Hide the normal reel cells only after all floating copies have
+             * been created, so there is never a blank frame between the old
+             * and moving symbols.
+             */
+            for (let row = 0; row < 3; row++) {
+                for (let reel = 0; reel < 5; reel++) {
+                    const cell = getCell(row, reel);
 
                     cell.innerHTML = "";
-
                     cell.classList.remove(
                         "winning",
                         "removed");
 
-                    cell.style.opacity = "1";
-                    cell.style.transform = "translateY(0)";
-                }
-
-                let targetRow = 2;
-                let survivorIndex = 0;
-
-                for (const survivor of survivors) {
-                    const cell =
-                        getCell(targetRow, reel);
-
-                    setSymbol(
-                        cell,
-                        survivor.symbol);
-
-                    const distance =
-                        targetRow - survivor.oldRow;
-
                     cell.style.transition = "none";
-
-                    cell.style.transform =
-                        `translateY(${-distance * 108}px)`;
-
+                    cell.style.transform = "translateY(0)";
                     cell.style.opacity = "1";
-
-                    void cell.offsetWidth;
-
-                    const delay =
-                        survivorIndex * 0.06;
-
-                    cell.style.transition =
-                        `transform 0.45s ease ${delay}s`;
-
-                    cell.style.transform =
-                        "translateY(0)";
-
-                    targetRow--;
-                    survivorIndex++;
                 }
             }
 
-            await sleep(550);
+            // Put the survivors in their final cells but keep them hidden until
+            // the floating copies have landed.
+            for (const item of finalCells) {
+                const cell =
+                    getCell(item.row, item.reel);
+
+                setSymbol(
+                    cell,
+                    item.symbol);
+
+                const img =
+                    cell.querySelector(".slot-symbol");
+
+                if (img)
+                    img.style.visibility = "hidden";
+            }
+
+            const animations =
+                movers.map(({
+                    element,
+                    deltaX,
+                    deltaY,
+                    delay,
+                    targetRow,
+                    targetReel
+                }) => {
+
+                    const animation =
+                        element.animate(
+                            [
+                                {
+                                    transform:
+                                        "translate(0px, 0px)"
+                                },
+                                {
+                                    transform:
+                                        `translate(${deltaX}px, ${deltaY}px)`
+                                }
+                            ],
+                            {
+                                duration: 450,
+                                delay,
+                                easing:
+                                    "cubic-bezier(.22,.8,.3,1)",
+                                fill: "forwards"
+                            });
+
+                    return animation.finished
+                        .catch(() => { })
+                        .then(() => {
+                            /*
+                             * Hand off from the floating copy to the real symbol
+                             * before removing the copy.  Previously every real
+                             * survivor stayed hidden until ALL movers had
+                             * finished, while earlier movers were already being
+                             * removed.  That produced the visible flash/flicker.
+                             */
+                            const targetCell =
+                                getCell(targetRow, targetReel);
+
+                            const realImg =
+                                targetCell?.querySelector(".slot-symbol");
+
+                            if (realImg)
+                                realImg.style.visibility = "";
+
+                            // Let the revealed real image paint underneath the
+                            // identical floating copy, then remove the copy.
+                            return new Promise(resolve => {
+                                requestAnimationFrame(() => {
+                                    element.remove();
+                                    resolve();
+                                });
+                            });
+                        });
+                });
+
+            await Promise.all(animations);
         }
+
 
         async function animateNewSymbols(
             boardAfter,
             wins,
             phoenixReels) {
-            const removed = new Set();
 
+            const removed = new Set();
             const phoenixSet = new Set(phoenixReels ?? []);
 
             for (const win of wins) {
@@ -535,12 +725,15 @@
                 }
             }
 
+            const animations = [];
+
             for (let reel = 0; reel < 5; reel++) {
-                // This reel is becoming a Phoenix,
-                // so do NOT animate normal replacement symbols into it.
+
+                // This reel is becoming a Phoenix, so normal
+                // replacement symbols are not dropped into it.
                 if (phoenixSet.has(reel))
                     continue;
-                // Count how many symbols were removed from this reel
+
                 let removedCount = 0;
 
                 for (let row = 0; row < 3; row++) {
@@ -552,8 +745,8 @@
                 if (removedCount === 0)
                     continue;
 
-                // New symbols will occupy the top rows
                 for (let row = 0; row < removedCount; row++) {
+
                     const cell = getCell(row, reel);
 
                     setSymbol(
@@ -566,60 +759,86 @@
 
                     cell.style.opacity = "1";
                     cell.style.transition = "none";
+                    cell.style.transform = "translateY(0)";
 
-                    // Start above the grid
-                    const startDistance =
-                        ((removedCount - row) * 108) +
-                        250 +
-                        (Math.random() * 200);
+                    /*
+                     * Start the replacement above the actual visible reel
+                     * window, based on its live position.  This guarantees the
+                     * symbol can only travel DOWN into its target cell, even
+                     * when the reel dimensions change on desktop/mobile.
+                     */
+                    const reelRect =
+                        document.querySelector(".reel-window")
+                            .getBoundingClientRect();
 
-                    cell.style.transform =
-                        `translateY(${-startDistance}px)`;
+                    const cellRect =
+                        cell.getBoundingClientRect();
 
-                    // Force browser to render starting position
-                    void cell.offsetWidth;
+                    const distanceAboveWindow =
+                        (cellRect.top - reelRect.top) +
+                        cellRect.height +
+                        45 +
+                        (Math.random() * 70);
 
-                    // Random delay for the whole reel
-                    const reelDelay =
-                        Math.random() * 0.12;
-
-                    // Symbols are released bottom-to-top
                     let rowDelay = 0;
 
                     if (row === removedCount - 1) {
-
-                        // Bottom symbol
-                        rowDelay =
-                            Math.random() * 0.05;
+                        rowDelay = Math.random() * 50;
                     }
                     else if (row === removedCount - 2) {
-
-                        // Middle symbol
-                        rowDelay =
-                            0.08 +
-                            Math.random() * 0.10;
+                        rowDelay = 80 + (Math.random() * 100);
                     }
                     else {
-
-                        // Top symbol
-                        rowDelay =
-                            0.18 +
-                            Math.random() * 0.14;
+                        rowDelay = 180 + (Math.random() * 140);
                     }
+
+                    const reelDelay =
+                        Math.random() * 120;
 
                     const delay =
                         reelDelay + rowDelay;
 
-                    cell.style.transition =
-                        `transform 0.65s cubic-bezier(.22,.8,.3,1) ${delay}s`;
+                    /*
+                     * Use Web Animations rather than changing CSS transition
+                     * states.  That avoids the browser occasionally painting a
+                     * replacement at its resting position first and then
+                     * interpolating from the wrong frame.
+                     */
+                    const animation =
+                        cell.animate(
+                            [
+                                {
+                                    transform:
+                                        `translateY(-${distanceAboveWindow}px)`
+                                },
+                                {
+                                    transform:
+                                        "translateY(0)"
+                                }
+                            ],
+                            {
+                                duration: 650,
+                                delay: delay,
+                                easing:
+                                    "cubic-bezier(.22,.8,.3,1)",
+                                fill: "both"
+                            });
 
-                    cell.style.transform =
-                        "translateY(0)";
+                    animations.push(
+                        animation.finished
+                            .catch(() => { })
+                            .then(() => {
+                                animation.cancel();
+                                cell.style.transform =
+                                    "translateY(0)";
+                                cell.style.transition = "";
+                            }));
                 }
             }
 
-            await sleep(850);
+            await Promise.all(animations);
         }
+
 
         function showBoard(board) {
             for (let row = 0; row < 3; row++) {
@@ -743,8 +962,8 @@
 
             cell.innerHTML =
                 `<img src="/images/symbols/${fileName}.png"
-                              class="slot-symbol"
-                              alt="${symbol}">`;
+                                              class="slot-symbol"
+                                              alt="${symbol}">`;
         }
 
         function clearPaylines() {
@@ -854,8 +1073,26 @@
             img.dataset.phoenixReel =
                 reel;
 
+            const reelWindow =
+                document.querySelector(".reel-window");
+
+            const reelWindowRect =
+                reelWindow.getBoundingClientRect();
+
+            const topCellRect =
+                getCell(0, reel).getBoundingClientRect();
+
+            // The original desktop Phoenix was 140px over a 100px reel cell.
+            // Keep that same 1.4x proportion as the reel shrinks on mobile.
             img.style.left =
-                `${reel * 108}px`;
+                `${topCellRect.left - reelWindowRect.left}px`;
+
+            img.style.width =
+                `${topCellRect.width * 1.4}px`;
+
+            img.style.setProperty(
+                "--phoenix-x-offset",
+                `${-topCellRect.width * 0.2}px`);
 
             img.style.top =
                 "0px";
@@ -894,11 +1131,18 @@
             explosion.className =
                 "phoenix-explosion";
 
+            const reelWindowRect =
+                document.querySelector(".reel-window")
+                    .getBoundingClientRect();
+
+            const topCellRect =
+                getCell(0, reel).getBoundingClientRect();
+
             explosion.style.left =
-                `${reel * 108 + 50}px`;
+                `${topCellRect.left - reelWindowRect.left + (topCellRect.width / 2)}px`;
 
             explosion.style.top =
-                "158px";
+                `${reelWindowRect.height / 2}px`;
 
             overlay.appendChild(explosion);
 
@@ -963,8 +1207,8 @@
 
     <style>
         .slot-cell {
-            width: 100px;
-            height: 100px;
+            width: 120px;
+            height: 120px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -985,8 +1229,8 @@
 
         .reel-window {
             position: relative;
-            width: 540px;
-            height: 316px;
+            width: 650px;
+            height: 380px;
             margin: 30px auto 24px auto;
             overflow: hidden;
         }
@@ -1002,20 +1246,26 @@
 
         #reels {
             display: grid;
-            grid-template-columns: repeat(5, 100px);
-            grid-template-rows: repeat(3, 100px);
-            gap: 8px;
+            grid-template-columns: repeat(5, 120px);
+            grid-template-rows: repeat(3, 120px);
+            gap: 10px;
             justify-content: center;
         }
 
 
         .slot-symbol {
-            width: 90px;
-            height: 90px;
+            width: 108px;
+            height: 108px;
             object-fit: contain;
             display: block;
             pointer-events: none;
             user-select: none;
+        }
+
+        .survivor-mover {
+            display: block;
+            user-select: none;
+            will-change: transform;
         }
 
         @@keyframes symbolFlash {
@@ -1043,7 +1293,7 @@
             height: 100%;
             object-fit: contain;
             opacity: 0;
-            transform: translateX(-20px) translateY(170px) scale(0.35);
+            transform: translateX(var(--phoenix-x-offset, -20px)) translateY(170px) scale(0.35);
             transform-origin: bottom center;
             filter: brightness(1.5) drop-shadow(0 0 15px orange) drop-shadow(0 0 30px red);
             z-index: 30;
@@ -1056,17 +1306,17 @@
         @@keyframes phoenixRise {
             0% {
                 opacity: 0;
-                transform: translateX(-20px) translateY(170px) scale(0.35);
+                transform: translateX(var(--phoenix-x-offset, -20px)) translateY(170px) scale(0.35);
             }
 
             60% {
                 opacity: 1;
-                transform: translateX(-20px) translateY(-5px) scale(1.08);
+                transform: translateX(var(--phoenix-x-offset, -20px)) translateY(-5px) scale(1.08);
             }
 
             100% {
                 opacity: 1;
-                transform: translateX(-20px) translateY(0) scale(1);
+                transform: translateX(var(--phoenix-x-offset, -20px)) translateY(0) scale(1);
             }
         }
 
@@ -1162,19 +1412,19 @@
         @@keyframes phoenixExplode {
             0% {
                 opacity: 1;
-                transform: translateX(-20px) translateY(0) scale(1);
+                transform: translateX(var(--phoenix-x-offset, -20px)) translateY(0) scale(1);
                 filter: brightness(1.5) drop-shadow(0 0 15px orange) drop-shadow(0 0 30px red);
             }
 
             35% {
                 opacity: 1;
-                transform: translateX(-20px) translateY(0) scale(1.18);
+                transform: translateX(var(--phoenix-x-offset, -20px)) translateY(0) scale(1.18);
                 filter: brightness(4) drop-shadow(0 0 30px yellow) drop-shadow(0 0 55px orange);
             }
 
             100% {
                 opacity: 0;
-                transform: translateX(-20px) translateY(0) scale(0.1);
+                transform: translateX(var(--phoenix-x-offset, -20px)) translateY(0) scale(0.1);
                 filter: brightness(6) blur(3px);
             }
         }
@@ -1223,19 +1473,17 @@
 
         .reel-window {
             position: relative;
-            width: 540px;
-            height: 316px;
+            width: 650px;
+            height: 380px;
             margin: 30px auto 24px auto;
             overflow: visible;
         }
 
         .reel-clip {
             position: absolute;
-            left: -40px;
-            top: -40px;
-            width: 620px;
-            height: 396px;
+            inset: -40px;
             padding: 40px;
+            box-sizing: border-box;
             overflow: hidden;
             pointer-events: none;
         }
@@ -1249,5 +1497,60 @@
             overflow: visible;
         }
 
+
+        /* Phoenix phone layout: keep all five reels inside the viewport at
+                           normal browser zoom while preserving the desktop layout unchanged. */
+        @@media (max-width: 600px) {
+            .reel-window {
+                width: 100%;
+                max-width: 650px;
+                height: auto;
+                aspect-ratio: 650 / 380;
+                margin: 18px auto 18px;
+            }
+
+            .reel-clip {
+                left: -8px;
+                right: -8px;
+                top: -28px;
+                bottom: -28px;
+                width: auto;
+                height: auto;
+                padding: 28px 8px;
+                box-sizing: border-box;
+            }
+
+            #reels {
+                width: 100%;
+                height: 100%;
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+                grid-template-rows: repeat(3, minmax(0, 1fr));
+                gap: clamp(2px, 1.25vw, 5px);
+                justify-content: stretch;
+            }
+
+            .slot-cell {
+                width: auto;
+                height: auto;
+                min-width: 0;
+                min-height: 0;
+            }
+
+            .slot-symbol {
+                width: 90%;
+                height: 90%;
+                max-width: 108px;
+                max-height: 108px;
+            }
+
+            .phoenix-symbol {
+                height: 100%;
+            }
+
+            #winMessage {
+                margin-left: auto;
+                margin-right: auto;
+            }
+        }
     </style>
 }
