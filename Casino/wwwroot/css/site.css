@@ -1391,7 +1391,7 @@ a.casino-game-card:hover .game-art img {
         content: "";
         position: absolute;
         inset: 0;
-        background: url('/images/reelcatch-undersea.png') center/cover no-repeat;
+     
         filter: saturate(1.15) brightness(.78);
     }
 
