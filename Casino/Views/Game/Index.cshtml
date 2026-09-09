@@ -4,6 +4,11 @@
     ViewData["Title"] = "Slot Game";
 }
 
+@if (ViewBag.IsDemo == true)
+{
+    <div class="text-center py-2" role="status">DEMO · credits: <strong id="demo-balance">@ViewBag.DemoBalance</strong></div>
+}
+
 <div class="container text-center mt-5 phoenix-game-page">
 
     <h1 class="mb-4">Phoenix Slot</h1>
@@ -76,7 +81,7 @@
             document.getElementById("spinButton");
 
         const balance =
-            document.getElementById("balance");
+            document.getElementById(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.IsDemo == true ? "demo-balance" : "balance")));
 
         const winMessage =
             document.getElementById("winMessage");
@@ -204,7 +209,7 @@ initialiseRandomBoard();
 
             try {
                 const response =
-                    await fetch("/Game/Spin",
+                    await fetch('@Url.Action("Spin", ViewBag.IsDemo == true ? "Demo" : "Game")',
                         {
                             method: "POST",
                             headers:

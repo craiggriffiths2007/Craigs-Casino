@@ -2,8 +2,13 @@
     ViewData["Title"] = "Phoenix Slot 2";
 }
 
+@if (ViewBag.IsDemo == true)
+{
+    <div class="text-center py-2" role="status">DEMO · credits: <strong id="demo-balance">@ViewBag.DemoBalance</strong></div>
+}
+
 <div class="container-fluid text-center py-3">
-    <iframe id="phoenix-slot-2-frame" src="@Url.Content("~/games/phoenix-slot-2/index.html")"
+    <iframe id="phoenix-slot-2-frame" src="@(ViewBag.IsDemo == true ? Url.Content("~/Demo/games/phoenix-slot-2/index.html") : Url.Content("~/games/phoenix-slot-2/index.html"))"
             title="Phoenix Slot 2"
             style="width:100%; height:85vh; min-height:650px; border:0;"
             allow="fullscreen; autoplay"
@@ -19,7 +24,7 @@
             if (event.data?.type !== "phoenix-slot-2-balance" ||
                 typeof event.data.balance !== "string" || !/^\d+$/.test(event.data.balance))
                 return;
-            const balance = document.getElementById("balance");
+            const balance = document.getElementById(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.IsDemo == true ? "demo-balance" : "balance")));
             if (balance) balance.textContent = event.data.balance;
         });
     </script>

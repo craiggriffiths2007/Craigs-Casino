@@ -8,6 +8,11 @@
     var bonusBet = (int)(ViewBag.BonusBet ?? 0);
 }
 
+@if (ViewBag.IsDemo == true)
+{
+    <div class="text-center py-2" role="status">DEMO · credits: <strong id="demo-balance">@ViewBag.DemoBalance</strong></div>
+}
+
 <div class="reel-catch-page">
     <div class="reel-catch-shell">
         <div class="reel-catch-titlebar">
@@ -135,7 +140,7 @@
             const spinButtonText = document.getElementById('spinButtonText');
             const autoButton = document.getElementById('autoButton');
             const betSelect = document.getElementById('bet');
-            const balance = document.getElementById('balance');
+            const balance = document.getElementById(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.IsDemo == true ? "demo-balance" : "balance")));
             const winMessage = document.getElementById('winMessage');
             const freeSpinsEl = document.getElementById('freeSpins');
             const collectorMultiplierEl = document.getElementById('collectorMultiplier');
@@ -489,7 +494,7 @@
                 body.append('__RequestVerificationToken', token);
 
                 try {
-                    const response = await fetch('@Url.Action("ReelCatchSpin", "Game")', {
+                    const response = await fetch('@Url.Action("ReelCatchSpin", ViewBag.IsDemo == true ? "Demo" : "Game")', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body
