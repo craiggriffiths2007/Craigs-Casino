@@ -2,6 +2,7 @@ using Casino.Data;
 using Casino.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.StaticFiles;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +44,16 @@ else
 }
 
 app.UseHttpsRedirection();
+
+var unityContentTypes = new FileExtensionContentTypeProvider();
+unityContentTypes.Mappings[".data"] = "application/octet-stream";
+unityContentTypes.Mappings[".wasm"] = "application/wasm";
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = unityContentTypes
+});
+
 app.UseRouting();
 
 app.UseAuthentication();

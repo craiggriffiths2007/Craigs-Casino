@@ -15,7 +15,7 @@
                 <div class="reel-catch-kicker">CAST • CATCH • COLLECT</div>
                 <h1>REEL CATCH</h1>
             </div>
-         
+
         </div>
 
         <div class="reel-catch-machine">
@@ -104,8 +104,8 @@
 
         <div class="reel-catch-help">
             <span>10 paylines</span>
-            <span>🎣 Fisherman is wild</span>
             <span>🐚 3+ shells = 10 free spins</span>
+            <span>🎣 Fishermen appear in FREE SPINS</span>
             <span>Bonus fishermen collect 💰 fish values</span>
         </div>
     </div>
@@ -126,7 +126,7 @@
                 Tackle: { image: '/images/reelcatch/tackle.png', name: 'TACKLE', cls: 'symbol-Tackle' },
                 Boat: { image: '/images/reelcatch/boat.png', name: 'BOAT', cls: 'symbol-Boat' },
                 Fish: { image: '/images/reelcatch/fish.png', name: 'FISH', cls: 'symbol-Fish' },
-                Fisherman: { image: '/images/reelcatch/fisherman.png', name: 'WILD', cls: 'symbol-Fisherman' },
+                Fisherman: { image: '/images/reelcatch/fisherman.png', name: 'COLLECTOR', cls: 'symbol-Fisherman' },
                 Scatter: { image: '/images/reelcatch/scatter.png', name: 'BONUS', cls: 'symbol-Scatter' }
             };
 
@@ -214,9 +214,36 @@
                 holder.innerHTML = `<img class="symbol-image" src="${info.image}" alt="${info.name}" draggable="false">`;
             }
 
-            function randomDisplaySymbol() {
-                const keys = Object.keys(symbolInfo);
-                return keys[Math.floor(Math.random() * keys.length)];
+            function randomDisplaySymbol(isBonus = false) {
+                const normalSymbols = [
+                    'J',
+                    'Q',
+                    'K',
+                    'A',
+                    'Tackle',
+                    'Boat',
+                    'Fish',
+                    'Scatter'
+                ];
+
+                const bonusSymbols = [
+                    'J',
+                    'Q',
+                    'K',
+                    'A',
+                    'Tackle',
+                    'Boat',
+                    'Fish',
+                    'Fisherman'
+                ];
+
+                const symbols = isBonus
+                    ? bonusSymbols
+                    : normalSymbols;
+
+                return symbols[
+                    Math.floor(Math.random() * symbols.length)
+                ];
             }
 
             function initialiseBubbles() {
@@ -269,10 +296,12 @@
 
                     const strip = reelEl.querySelector('.catch-spin-strip');
 
+                    const isBonus = freeSpins > 0;
+
                     const initialSymbols = [
-                        randomDisplaySymbol(),
-                        randomDisplaySymbol(),
-                        randomDisplaySymbol()
+                        randomDisplaySymbol(isBonus),
+                        randomDisplaySymbol(isBonus),
+                        randomDisplaySymbol(isBonus)
                     ];
 
                     // Update the underlying cells.
@@ -310,18 +339,27 @@
                 return `<div class="catch-strip-symbol ${info.cls}"><img class="symbol-image" src="${info.image}" alt="${info.name}" draggable="false"></div>`;
             }
 
-            function fillSpinStrip(strip, finalSymbols) {
+            function fillSpinStrip(strip, finalSymbols, isBonus) {
                 const symbols = [...finalSymbols];
 
-                // More symbols = more distance travelled = faster-looking reel.
-                for (let i = 0; i < 32; i++)
-                    symbols.push(randomDisplaySymbol());
+                for (let i = 0; i < 32; i++) {
+                    symbols.push(
+                        randomDisplaySymbol(isBonus)
+                    );
+                }
 
-                strip.innerHTML = symbols.map(symbolMarkup).join('');
+                strip.innerHTML =
+                    symbols.map(symbolMarkup).join('');
+
                 return symbols.length;
             }
 
-            async function animateOneReel(reel, board, startDelay, duration) {
+            async function animateOneReel(
+                reel,
+                board,
+                startDelay,
+                duration,
+                isBonus) {
                 const reelEl = document.querySelector(`.catch-reel[data-reel="${reel}"]`);
                 const strip = reelEl.querySelector('.catch-spin-strip');
                 const windowEl = reelEl.querySelector('.catch-reel-window');
@@ -329,7 +367,11 @@
 
                 await delay(startDelay);
 
-                const symbolCount = fillSpinStrip(strip, finalSymbols);
+                const symbolCount =
+                    fillSpinStrip(
+                        strip,
+                        finalSymbols,
+                        isBonus);
                 const cellHeight = reelEl.getBoundingClientRect().height / 3;
                 const startY = -cellHeight * (symbolCount - 3);
                 strip.style.setProperty('--reel-cell-height', `${cellHeight}px`);
@@ -369,7 +411,7 @@
                 }, 260);
             }
 
-            async function animateReels(board) {
+            async function animateReels(board, isBonus) {
                 // Big-Bass-style cadence: the reels launch almost together, then stop
                 // distinctly from left to right. Later reels travel a little longer.
                 const spins = [];
@@ -378,7 +420,8 @@
                         reel,
                         board,
                         reel * 40,
-                        1400 + (reel * 220)
+                        1400 + (reel * 220),
+                        isBonus
                     ));
                 }
 
@@ -458,7 +501,7 @@
                         return;
                     }
 
-                    await animateReels(data.board);
+                    await animateReels(data.board, data.isFreeSpin);
 
                     data.board.flatMap((row, rowIndex) => row.map((symbol, reelIndex) => ({ symbol, rowIndex, reelIndex })))
                         .filter(x => x.symbol === 'Scatter')
@@ -545,23 +588,18 @@
             justify-content: center;
         }
 
-        /* Keep the WILD at its corrected angle at all times.
-                   The shared CSS rotates .symbol-Fisherman itself, but the win
-                   animation also uses transform, so the two transforms fight.
-                   Reset the container and rotate only the image instead. */
         .symbol-Fisherman {
             transform: none !important;
         }
 
             .symbol-Fisherman .symbol-image {
-                
                 transform-origin: center;
             }
 
         /* Reel Catch layout refinements ----------------------------------- */
 
         /* Keep the game title truly centred while the Lobby link remains
-                   available at the right-hand side. */
+                           available at the right-hand side. */
         .reel-catch-titlebar {
             position: relative;
             display: flex;
@@ -582,16 +620,16 @@
         }
 
         /* Bring the five reels/symbol columns closer together without
-                   changing the symbol sizes. */
+                           changing the symbol sizes. */
         .reel-catch-board {
             gap: 3px !important;
         }
 
         /*
-                 * Fixed-width side slots keep the message in exactly the same place
-                 * whether the bonus is active or not. The side information is merely
-                 * hidden, never removed from the layout.
-                 */
+                         * Fixed-width side slots keep the message in exactly the same place
+                         * whether the bonus is active or not. The side information is merely
+                         * hidden, never removed from the layout.
+                         */
         .reel-catch-message-row {
             display: grid;
             grid-template-columns: 150px minmax(0, 1fr) 150px;

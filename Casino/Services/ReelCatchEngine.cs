@@ -6,6 +6,15 @@ namespace Casino.Services
     /// <summary>
     /// Original 5x3 fishing-themed slot. The server generates every result.
     /// Bet is the total stake for the spin, shared across ten paylines.
+    ///
+    /// Base game:
+    /// - Fisherman does not appear.
+    /// - Scatter can appear and can trigger the free-spins bonus.
+    ///
+    /// Bonus game:
+    /// - Fisherman appears as a collector only.
+    /// - Fisherman is not a wild and does not contribute to payline wins.
+    /// - Scatter does not appear during free spins.
     /// </summary>
     public class ReelCatchEngine
     {
@@ -27,18 +36,21 @@ namespace Casino.Services
             [0,1,1,1,0]
         ];
 
+        // Base game: Fisherman is deliberately excluded.
         private static readonly (string Symbol, int Weight)[] BaseWeights =
         [
             ("J", 18), ("Q", 17), ("K", 16), ("A", 15),
             ("Tackle", 11), ("Boat", 9), ("Fish", 10),
-            ("Fisherman", 3), ("Scatter", 4)
+            ("Scatter", 4)
         ];
 
+        // Bonus: Scatter is deliberately excluded.
+        // Fisherman appears only here and acts as the collector.
         private static readonly (string Symbol, int Weight)[] BonusWeights =
         [
             ("J", 16), ("Q", 15), ("K", 14), ("A", 13),
             ("Tackle", 10), ("Boat", 8), ("Fish", 15),
-            ("Fisherman", 7), ("Scatter", 2)
+            ("Fisherman", 7)
         ];
 
         private static readonly int[] FishValueMultipliers = [1, 1, 2, 2, 3, 5, 5, 10, 20, 50];
@@ -46,26 +58,40 @@ namespace Casino.Services
         public ReelCatchSpinResult Spin(long bet, bool bonusSpin, int collectorMultiplier)
         {
             var board = CreateBoard(bonusSpin);
+
             var result = new ReelCatchSpinResult
             {
                 Board = board,
+
+                // There should never be scatters during a bonus spin, but keeping
+                // the count here makes the result object truthful and defensive.
                 ScatterCount = CountSymbol(board, "Scatter")
             };
 
             result.Wins = FindPaylineWins(board, bet);
             result.LineWin = result.Wins.Sum(x => x.Win);
-            result.BonusTriggered = !bonusSpin && result.ScatterCount >= 3;
+
+            // Only the base game can trigger the bonus.
+            result.BonusTriggered =
+                !bonusSpin &&
+                result.ScatterCount >= 3;
 
             if (!bonusSpin)
                 return result;
 
+            // Cash fish values only exist/are relevant during the free-spins bonus.
             result.FishPrizes = CreateFishPrizes(board, bet);
+
+            // Fishermen are collectors only.
             result.FishermenLanded = CountSymbol(board, "Fisherman");
             result.FishermanLanded = result.FishermenLanded > 0;
 
-            if (result.FishermanLanded && result.FishPrizes.Count > 0)
+            if (result.FishermanLanded &&
+                result.FishPrizes.Count > 0)
             {
-                result.CollectorWin = result.FishPrizes.Sum(x => x.Value) * Math.Max(1, collectorMultiplier);
+                result.CollectorWin =
+                    result.FishPrizes.Sum(x => x.Value) *
+                    Math.Max(1, collectorMultiplier);
             }
 
             return result;
@@ -74,27 +100,39 @@ namespace Casino.Services
         private static string[][] CreateBoard(bool bonusSpin)
         {
             var board = new string[Rows][];
-            var weights = bonusSpin ? BonusWeights : BaseWeights;
+            var weights = bonusSpin
+                ? BonusWeights
+                : BaseWeights;
 
             for (var row = 0; row < Rows; row++)
             {
                 board[row] = new string[Reels];
+
                 for (var reel = 0; reel < Reels; reel++)
-                    board[row][reel] = RandomSymbol(weights);
+                {
+                    board[row][reel] =
+                        RandomSymbol(weights);
+                }
             }
 
             return board;
         }
 
-        private static string RandomSymbol((string Symbol, int Weight)[] weights)
+        private static string RandomSymbol(
+            (string Symbol, int Weight)[] weights)
         {
-            var total = weights.Sum(x => x.Weight);
-            var roll = RandomNumberGenerator.GetInt32(total);
+            var total =
+                weights.Sum(x => x.Weight);
+
+            var roll =
+                RandomNumberGenerator.GetInt32(total);
+
             var running = 0;
 
             foreach (var item in weights)
             {
                 running += item.Weight;
+
                 if (roll < running)
                     return item.Symbol;
             }
@@ -102,29 +140,55 @@ namespace Casino.Services
             return weights[^1].Symbol;
         }
 
-        private static List<WaysWin> FindPaylineWins(string[][] board, long totalBet)
+        private static List<WaysWin> FindPaylineWins(
+            string[][] board,
+            long totalBet)
         {
             var wins = new List<WaysWin>();
-            var lineBet = Math.Max(1, totalBet / Paylines);
 
-            for (var lineIndex = 0; lineIndex < Lines.Length; lineIndex++)
+            var lineBet =
+                Math.Max(1, totalBet / Paylines);
+
+            for (var lineIndex = 0;
+                 lineIndex < Lines.Length;
+                 lineIndex++)
             {
                 var line = Lines[lineIndex];
-                var target = FindTargetSymbol(board, line);
 
-                if (target == null || target == "Scatter")
+                var target =
+                    board[line[0]][0];
+
+                // Scatter never pays on paylines.
+                // Fisherman is a collector, not a wild/pay symbol.
+                if (target == "Scatter" ||
+                    target == "Fisherman")
+                {
                     continue;
+                }
 
                 var matched = 0;
-                var positions = new List<WinningPosition>();
+                var positions =
+                    new List<WinningPosition>();
 
-                for (var reel = 0; reel < Reels; reel++)
+                for (var reel = 0;
+                     reel < Reels;
+                     reel++)
                 {
-                    var symbol = board[line[reel]][reel];
-                    if (symbol == target || symbol == "Fisherman")
+                    var symbol =
+                        board[line[reel]][reel];
+
+                    // Exact-symbol matching only.
+                    // Fisherman no longer substitutes for anything.
+                    if (symbol == target)
                     {
                         matched++;
-                        positions.Add(new WinningPosition { Row = line[reel], Reel = reel });
+
+                        positions.Add(
+                            new WinningPosition
+                            {
+                                Row = line[reel],
+                                Reel = reel
+                            });
                     }
                     else
                     {
@@ -135,74 +199,137 @@ namespace Casino.Services
                 if (matched < 3)
                     continue;
 
-                var multiplier = GetPayMultiplier(target, matched);
+                var multiplier =
+                    GetPayMultiplier(
+                        target,
+                        matched);
+
                 if (multiplier <= 0)
                     continue;
 
-                wins.Add(new WaysWin
-                {
-                    Symbol = target,
-                    ReelsMatched = matched,
-                    Ways = 1,
-                    PaylineIndex = lineIndex,
-                    Win = lineBet * multiplier,
-                    Positions = positions
-                });
+                wins.Add(
+                    new WaysWin
+                    {
+                        Symbol = target,
+                        ReelsMatched = matched,
+                        Ways = 1,
+                        PaylineIndex = lineIndex,
+                        Win = lineBet * multiplier,
+                        Positions = positions
+                    });
             }
 
             return wins;
         }
 
-        private static string? FindTargetSymbol(string[][] board, int[] line)
-        {
-            for (var reel = 0; reel < Reels; reel++)
+        private static int GetPayMultiplier(
+            string symbol,
+            int count) =>
+            symbol switch
             {
-                var symbol = board[line[reel]][reel];
-                if (symbol != "Fisherman")
-                    return symbol;
-            }
+                "J" => count switch
+                {
+                    3 => 2,
+                    4 => 4,
+                    5 => 8,
+                    _ => 0
+                },
 
-            return "Fisherman";
-        }
+                "Q" => count switch
+                {
+                    3 => 2,
+                    4 => 5,
+                    5 => 10,
+                    _ => 0
+                },
 
-        private static int GetPayMultiplier(string symbol, int count) => symbol switch
+                "K" => count switch
+                {
+                    3 => 3,
+                    4 => 6,
+                    5 => 12,
+                    _ => 0
+                },
+
+                "A" => count switch
+                {
+                    3 => 3,
+                    4 => 7,
+                    5 => 15,
+                    _ => 0
+                },
+
+                "Tackle" => count switch
+                {
+                    3 => 5,
+                    4 => 12,
+                    5 => 25,
+                    _ => 0
+                },
+
+                "Boat" => count switch
+                {
+                    3 => 7,
+                    4 => 18,
+                    5 => 40,
+                    _ => 0
+                },
+
+                "Fish" => count switch
+                {
+                    3 => 4,
+                    4 => 10,
+                    5 => 22,
+                    _ => 0
+                },
+
+                // Fisherman intentionally has no paytable entry.
+                _ => 0
+            };
+
+        private static List<FishPrize> CreateFishPrizes(
+            string[][] board,
+            long bet)
         {
-            "J" => count switch { 3 => 2, 4 => 4, 5 => 8, _ => 0 },
-            "Q" => count switch { 3 => 2, 4 => 5, 5 => 10, _ => 0 },
-            "K" => count switch { 3 => 3, 4 => 6, 5 => 12, _ => 0 },
-            "A" => count switch { 3 => 3, 4 => 7, 5 => 15, _ => 0 },
-            "Tackle" => count switch { 3 => 5, 4 => 12, 5 => 25, _ => 0 },
-            "Boat" => count switch { 3 => 7, 4 => 18, 5 => 40, _ => 0 },
-            "Fish" => count switch { 3 => 4, 4 => 10, 5 => 22, _ => 0 },
-            "Fisherman" => count switch { 3 => 10, 4 => 25, 5 => 60, _ => 0 },
-            _ => 0
-        };
+            var values =
+                new List<FishPrize>();
 
-        private static List<FishPrize> CreateFishPrizes(string[][] board, long bet)
-        {
-            var values = new List<FishPrize>();
-
-            for (var row = 0; row < Rows; row++)
+            for (var row = 0;
+                 row < Rows;
+                 row++)
             {
-                for (var reel = 0; reel < Reels; reel++)
+                for (var reel = 0;
+                     reel < Reels;
+                     reel++)
                 {
                     if (board[row][reel] != "Fish")
                         continue;
 
-                    var multiple = FishValueMultipliers[RandomNumberGenerator.GetInt32(FishValueMultipliers.Length)];
-                    values.Add(new FishPrize
-                    {
-                        Row = row,
-                        Reel = reel,
-                        Value = bet * multiple
-                    });
+                    var multiple =
+                        FishValueMultipliers[
+                            RandomNumberGenerator.GetInt32(
+                                FishValueMultipliers.Length)];
+
+                    values.Add(
+                        new FishPrize
+                        {
+                            Row = row,
+                            Reel = reel,
+                            Value = bet * multiple
+                        });
                 }
             }
 
             return values;
         }
 
-        private static int CountSymbol(string[][] board, string target)
-            => board.Sum(row => row.Count(symbol => symbol == target));
+        private static int CountSymbol(
+            string[][] board,
+            string target) =>
+            board.Sum(
+                row =>
+                    row.Count(
+                        symbol =>
+                            symbol == target));
     }
 }

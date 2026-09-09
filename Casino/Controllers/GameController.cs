@@ -30,6 +30,11 @@ namespace Casino.Controllers
             _reelCatchEngine = reelCatchEngine;
         }
 
+        public IActionResult PhoenixSlot2()
+        {
+            return View();
+        }
+
         public async Task<IActionResult> Index()
         {
             var userId = _userManager.GetUserId(User);
@@ -74,8 +79,11 @@ namespace Casino.Controllers
                 });
             }
 
+            // Hold the same wallet lock used by Phoenix Slot 2 until settlement is saved.
+            await using var walletTransaction = await _context.Database.BeginTransactionAsync();
             var player = await _context.PlayerAccounts
-                .FirstOrDefaultAsync(p => p.UserId == userId);
+                .FromSqlInterpolated($"SELECT * FROM [PlayerAccounts] WITH (UPDLOCK, HOLDLOCK) WHERE [UserId] = {userId}")
+                .SingleOrDefaultAsync();
 
             if (player == null)
             {
@@ -114,6 +122,7 @@ namespace Casino.Controllers
             _context.Spins.Add(spin);
 
             await _context.SaveChangesAsync();
+            await walletTransaction.CommitAsync();
 
             return Json(new
             {
@@ -164,8 +173,11 @@ namespace Casino.Controllers
             if (userId == null)
                 return Unauthorized();
 
+            // Hold the same wallet lock used by Phoenix Slot 2 until settlement is saved.
+            await using var walletTransaction = await _context.Database.BeginTransactionAsync();
             var player = await _context.PlayerAccounts
-                .FirstOrDefaultAsync(p => p.UserId == userId);
+                .FromSqlInterpolated($"SELECT * FROM [PlayerAccounts] WITH (UPDLOCK, HOLDLOCK) WHERE [UserId] = {userId}")
+                .SingleOrDefaultAsync();
 
             if (player == null)
                 return BadRequest(new { message = "Player account not found." });
@@ -260,6 +272,7 @@ namespace Casino.Controllers
 
             _context.Spins.Add(spin);
             await _context.SaveChangesAsync();
+            await walletTransaction.CommitAsync();
 
             HttpContext.Session.SetInt32("ReelCatch.FreeSpins", freeSpinsRemaining);
             HttpContext.Session.SetInt32("ReelCatch.Collectors", collectorCount);
