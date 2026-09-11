@@ -14,6 +14,8 @@
         ? reelCatchUrl
         : Url.Page("/Account/Login", new { area = "Identity", returnUrl = reelCatchUrl });
 
+    var tempestUrl = Url.Action("Index", "Tempest") ?? "/Tempest";
+    var tempestPlayUrl = isSignedIn ? tempestUrl : Url.Page("/Account/Login", new { area = "Identity", returnUrl = tempestUrl });
     var credits = (long)(ViewBag.Credits ?? 10000L);
 }
 
@@ -62,38 +64,8 @@
             }
         </div>
 
+
         <div class="casino-game-grid">
-            <div class="casino-game-card phoenix-game">
-                <div class="game-art phoenix-art">
-                    <img src="/images/phoenix-game.png" alt="Phoenix Slots" />
-                    <div class="game-art-shade"></div>
-                    <div class="game-badge">CASCADE SLOTS</div>
-                </div>
-                <div class="game-card-info">
-                    <div>
-                        <h2>PHOENIX</h2>
-                        <p>5 × 3 cascading wins</p>
-                    </div>
-                    <div class="d-flex gap-2">@if (!isSignedIn) { <a class="game-play" href="@Url.Action("Index", "Demo")">DEMO</a> }<a class="game-play" href="@phoenixPlayUrl">PLAY</a></div>
-                </div>
-            </div>
-
-            <div class="casino-game-card reelcatch-game">
-                <div class="game-art reelcatch-art">
-                    <img src="/images/reel-game.png" alt="Reel Catch" />
-                    <div class="game-art-shade"></div>
-                    <div class="game-badge">10 PAYLINES</div>
-                </div>
-
-                <div class="game-card-info">
-                    <div>
-                        <h2>REEL CATCH</h2>
-                        <p>Cash fish • free spins • collector</p>
-                    </div>
-
-                    <div class="d-flex gap-2">@if (!isSignedIn) { <a class="game-play" href="@Url.Action("ReelCatch", "Demo")">DEMO</a> }<a class="game-play" href="@reelCatchPlayUrl">PLAY</a></div>
-                </div>
-            </div>
 
             <div
    class="casino-game-card phoenix-game">
@@ -112,22 +84,52 @@
     </div>
 </div>
 
-            <div class="casino-game-card coming-soon" aria-disabled="true">
-                <div class="game-art coming-art">
-                    <span>♛</span>
-                    <div class="game-badge">COMING SOON</div>
+
+
+            <div class="casino-game-card reelcatch-game">
+                <div class="game-art reelcatch-art">
+                    <img src="/images/reel-game.png" alt="Reel Catch" />
+                    <div class="game-art-shade"></div>
+                    <div class="game-badge">10 PAYLINES</div>
+                </div>
+
+                <div class="game-card-info">
+                    <div>
+                        <h2>REEL CATCH</h2>
+                        <p>Cash fish • free spins • collector</p>
+                    </div>
+
+                    <div class="d-flex gap-2">@if (!isSignedIn) { <a class="game-play" href="@Url.Action("ReelCatch", "Demo")">DEMO</a> }<a class="game-play" href="@reelCatchPlayUrl">PLAY</a></div>
+                </div>
+            </div>
+
+            
+
+            <div class="casino-game-card">
+                <div class="game-art phoenix-art"><img src="~/images/tempest-temple.png" asp-append-version="true" alt="A storm-lit castle, sparkling gems and a golden crown" loading="lazy" /><div class="game-art-shade"></div><div class="game-badge">TUMBLING SLOTS</div></div>
+                <div class="game-card-info"><div><h2>TEMPEST TEMPLE</h2><p>Gems • lightning multipliers • free spins</p></div><div class="d-flex gap-2"><a class="game-play" href="@Url.Action("Tempest", "Demo")">DEMO</a><a class="game-play" href="@tempestPlayUrl">PLAY</a></div></div>
+            </div>
+
+                        <div class="casino-game-card phoenix-game">
+                <div class="game-art phoenix-art">
+                    <img src="/images/phoenix-game.png" alt="Phoenix Slots" />
+                    <div class="game-art-shade"></div>
+                    <div class="game-badge">CASCADE SLOTS</div>
                 </div>
                 <div class="game-card-info">
                     <div>
-                        <h2>NEW GAME</h2>
-                        <p>Another machine is on the way</p>
+                        <h2>PHOENIX</h2>
+                        <p>5 × 3 cascading wins</p>
                     </div>
+                    <div class="d-flex gap-2">@if (!isSignedIn) { <a class="game-play" href="@Url.Action("Index", "Demo")">DEMO</a> }<a class="game-play" href="@phoenixPlayUrl">PLAY</a></div>
                 </div>
             </div>
-        </div>
 
+        </div>
         <p class="lobby-tip">
             @(isSignedIn ? "SELECT A GAME TO BEGIN" : "TRY A DEMO — NO LOGIN REQUIRED")
         </p>
     </section>
 </div>
+
+

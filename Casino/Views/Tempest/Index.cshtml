@@ -1,0 +1,31 @@
+@model Casino.Models.PlayerAccount
+@{ var isDemo = ViewBag.IsDemo == true; ViewData["Title"] = isDemo ? "Tempest Temple Demo" : "Tempest Temple"; }
+<link rel="stylesheet" href="~/css/tempest.css" asp-append-version="true" />
+<section class="tempest" data-endpoint="@(isDemo ? Url.Action("TempestSpin", "Demo") : Url.Action("Spin", "Tempest"))">
+    <h1 class="tempest-heading">Tempest Temple</h1>
+    <div class="tempest-machine"><aside><span>STORM POWER</span><strong id="tempest-multiplier">×1</strong><p>Lightning amplifies<br />your tumble wins</p></aside><div id="tempest-board" class="tempest-board" aria-label="Slot board"></div><aside><span>FREE SPINS</span><strong id="tempest-free">0</strong><p>4 scatters unlock<br />15 free spins</p></aside></div>
+    <p id="tempest-status" class="tempest-status" role="status" aria-live="polite">Land 8 matching symbols anywhere to win</p>
+    <div class="tempest-audio" style="display:flex;justify-content:center;gap:12px;margin:12px"><button type="button" id="tempest-music" class="btn btn-outline-warning btn-sm">Music: on</button><button type="button" id="tempest-effects" class="btn btn-outline-warning btn-sm">Sound: on</button></div>
+    <form id="tempest-form" class="tempest-controls">
+        @Html.AntiForgeryToken()
+        <div><span>BALANCE</span><strong id="tempest-balance">@Model.Credits.ToString("N0")</strong></div>
+        <label>BET <input id="tempest-bet" type="number" min="10" max="1000" step="10" value="20" required /></label>
+        <button id="tempest-spin" type="submit">SPIN ⚡</button>
+        <div><span>ROUND WIN</span><strong id="tempest-win">0</strong></div>
+        <label class="tempest-fast"><input id="tempest-fast" type="checkbox" /> Quick play</label>
+    </form>
+    @if (isDemo)
+    {
+        <div style="text-align:center;margin:16px 0">
+            <p>DEMO MODE · Practice credits only. Your account balance is unaffected.</p>
+            <form asp-controller="Demo" asp-action="ResetTempest" method="post">
+                <button class="btn btn-outline-warning btn-sm" type="submit">Reset demo credits to 10,000</button>
+            </form>
+        </div>
+    }
+    <p class="tempest-back"><a asp-controller="Home" asp-action="Index">← Casino floor</a></p>
+    <details class="tempest-rules"><summary>How to play &amp; payouts</summary><p>Wins require 8+ identical regular symbols anywhere. Winning symbols disappear and new symbols tumble down. For 8–9 / 10–11 / 12+ symbols, payouts are:</p><p>◆ 0.2/0.4/1× · ● 0.3/0.6/1.5× · ▲ 0.4/0.8/2× · ⬟ 0.5/1/2.5× · ✦ 0.6/1.2/3× · ❖ 0.7/1.4/3.5× · ♜ 0.8/1.6/4× · ♛ 0.9/1.8/4.5× · ☀ 1/2/5× bet.</p><p>⚡ symbols on the final board award 2×, 5×, 10× or 50× each, added together. They multiply the total regular-symbol win. During free spins, lightning from winning turns accumulates up to 500× for the bonus. Four / five / six or more ◉ scatters on the final base board pay 3× / 5× / 100× and award 15 free spins. Three or more scatters in a free spin award 5 extra spins.</p><p>Maximum 100 free spins, 50 tumble evaluations per turn, and 5,000× total round win. Reaching the win cap ends the round. All free spins settle with the paid spin; animations reveal already credited results. Virtual credits only. Original game mathematics; no advertised RTP.</p></details>
+</section>
+@section Scripts { <script src="~/js/tempest-audio.js" asp-append-version="true"></script> <script src="~/js/tempest.js" asp-append-version="true"></script> }
+
+

@@ -18,6 +18,32 @@ public class DemoController(SlotEngine slotEngine, ReelCatchEngine reelCatchEngi
     private PlayerAccount Player() => new() { Credits = Balance };
 
     public IActionResult Index() => DemoView("Index");
+    public IActionResult Tempest()
+    {
+        ViewBag.IsDemo = true;
+        return View("~/Views/Tempest/Index.cshtml", Player());
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult TempestSpin(long bet)
+    {
+        if (bet < 10 || bet > 1000 || bet % 10 != 0)
+            return BadRequest(new { message = "Choose 10–1000 demo credits in steps of 10." });
+        var balance = Balance;
+        if (balance < bet)
+            return BadRequest(new { message = "Not enough demo credits. Use Reset demo credits to start again." });
+        var result = new TempestEngine().Play(bet);
+        balance = checked(balance - bet + result.TotalWin);
+        SaveBalance(balance);
+        return Json(new { result, balance });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult ResetTempest()
+    {
+        SaveBalance(10000);
+        return RedirectToAction(nameof(Tempest));
+    }
     public IActionResult ReelCatch()
     {
         ViewBag.FreeSpinsRemaining = HttpContext.Session.GetInt32("Demo.ReelCatch.FreeSpins") ?? 0;

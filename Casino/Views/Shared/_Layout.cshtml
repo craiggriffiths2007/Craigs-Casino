@@ -41,10 +41,28 @@
 </head>
 <body class="casino-body">
     <header class="casino-topbar">
-        <a class="casino-brand" asp-controller="Home" asp-action="Index">
-            <span class="casino-brand-mark">♠</span><span>CRAIGS CASINO</span>
-        </a>
+
+        <div class="casino-brand-wrap">
+
+            <a class="casino-brand"
+               asp-controller="Home"
+               asp-action="Index">
+                <span class="casino-brand-mark">♠</span>
+                <span>CRAIGS CASINO</span>
+            </a>
+
+            <a class="casino-demo-notice"
+               href="https://github.com/craiggriffiths2007/Craigs-Casino"
+               target="_blank"
+               rel="noopener"
+               title="View source code on GitHub">
+                — open-source project ↗
+            </a>
+
+        </div>
+
         <partial name="_LoginPartial" />
+
     </header>
     <main role="main" class="casino-main">@RenderBody()</main>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

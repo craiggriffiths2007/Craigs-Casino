@@ -8,6 +8,37 @@ html {
     }
 }
 
+.casino-demo-notice,
+.casino-demo-notice:visited,
+.casino-demo-notice:hover,
+.casino-demo-notice:focus,
+.casino-demo-notice:active {
+    font-size: 0.75rem;
+    font-weight: normal;
+    opacity: 0.75;
+    white-space: nowrap;
+    color: white;
+    text-decoration: none;
+}
+
+    .casino-demo-notice:hover {
+        opacity: 1;
+    }
+
+.casino-brand-wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
+.casino-demo-notice {
+    font-size: 0.75rem;
+    font-weight: normal;
+    opacity: 0.75;
+    white-space: nowrap;
+}
+
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
     box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
@@ -1380,6 +1411,7 @@ a.casino-game-card:hover .game-art img {
     letter-spacing: .13em;
     backdrop-filter: blur(5px);
 }
+
 
 .reelcatch-art {
     display: grid;
